@@ -77,15 +77,23 @@ const refresh=async(req,res,next)=>{
 
         const decoded=tokenService.verifyRefreshToken(refreshToken)
 
-        const newAccessToken=tokenService.generateAccessToken(decoded.userId,decoded.role)
-        const newRefreshToken=tokenService.generateRefreshToken(decoded.userId)
+        const user=await authService.findUserById(decoded.userId)
+        if(!user){
+            const err=new Error("User not found")
+            err.status=401
+            throw err
+        }
+
+        const newAccessToken=tokenService.generateAccessToken(user.id,user.role)
+        const newRefreshToken=tokenService.generateRefreshToken(user.id)
 
         await tokenService.rotateRefreshToken(refreshToken,newRefreshToken)
 
         res.cookie("refreshToken",newRefreshToken,COOKIE_OPTIONS)
         res.status(200).json({
             success:true,
-            accessToken:newAccessToken
+            accessToken:newAccessToken,
+            user:{id:user.id,name:user.name,email:user.email,role:user.role}
         })
     }
     catch(err){

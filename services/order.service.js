@@ -82,7 +82,7 @@ const updateOrderStatus=async(orderId,newStatus)=>{
     const order=await Order.findByPk(orderId)
     if(!order){
         const err=new Error("Order not found")
-        err.status=400
+        err.status=404
         throw err
     }
     if(validTransitions[order.status]!==newStatus){
@@ -96,7 +96,9 @@ const updateOrderStatus=async(orderId,newStatus)=>{
     if(newStatus==="Ready") updateData.readyAt=new Date()
     
     await order.update(updateData)       
-    return order
+    return Order.findByPk(orderId,{
+        include:[{model:OrderItem,as:"orderItems"}]
+    })
 }
 
 module.exports={createOrder,getUserOrders,getAllActiveOrders,updateOrderStatus}
