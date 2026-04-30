@@ -43,7 +43,7 @@ const login=async(req,res,next)=>{
         }
 
         const accessToken=tokenService.generateAccessToken(user.id,user.role)
-        const refreshToken=tokenService.generateRefreshToken(user.id)
+        const refreshToken=tokenService.generateRefreshToken(user.id,user.role)
 
         await tokenService.saveRefreshToken(user.id,refreshToken,userAgent)
 
@@ -85,7 +85,7 @@ const refresh=async(req,res,next)=>{
         }
 
         const newAccessToken=tokenService.generateAccessToken(user.id,user.role)
-        const newRefreshToken=tokenService.generateRefreshToken(user.id)
+        const newRefreshToken=tokenService.generateRefreshToken(user.id,user.role)
 
         await tokenService.rotateRefreshToken(refreshToken,newRefreshToken)
 

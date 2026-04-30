@@ -3,8 +3,8 @@ const { RefreshToken } = require('../models')
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure  : process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  secure  : false,//process.env.NODE_ENV === 'production',
+  sameSite: "lax", //'strict',
   maxAge  : 7 * 24 * 60 * 60 * 1000
 }
 
@@ -16,9 +16,9 @@ const generateAccessToken = (userId, role) => {
   )
 }
 
-const generateRefreshToken = (userId) => {
+const generateRefreshToken = (userId, role) => {
   return jwt.sign(
-    { userId },
+    { userId,role },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: '7d' }
   )
