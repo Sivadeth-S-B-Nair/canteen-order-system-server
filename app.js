@@ -10,6 +10,7 @@ const { initSocket } = require("./socket");
 const authRoutes = require("./routes/auth.routes");
 const menuRoutes = require("./routes/menu.routes");
 const orderRoutes = require("./routes/order.routes");
+const path = require("path");
 
 const app = express();
 
@@ -21,6 +22,8 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
+
+app.use("/uploads",express.static(path.join(__dirname,"uploads")))
 
 app.use("/api/auth", authRoutes);
 app.use("/api/menu", menuRoutes);
