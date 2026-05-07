@@ -1,6 +1,7 @@
 const {Op}=require("sequelize")
 const sequelize=require("../config/db")
-const {Order,OrderItem,MenuItem}=require("../models")
+const {Order,OrderItem,MenuItem, Payment}=require("../models")
+const paymentService=require("../services/payment.service")
 
 const createOrder=async(userId,items)=>{
     const transaction=await sequelize.transaction()
@@ -38,17 +39,23 @@ const createOrder=async(userId,items)=>{
         const order=await Order.create({
             userId,
             totalPrice:parseFloat(totalPrice.toFixed(2)),
-            status:"Ordered"
+            status:"PAYMENT_PENDING"
         },{transaction})
 
         await OrderItem.bulkCreate(
             itemsToCreate.map(i=>({...i,orderId:order.id})),{transaction}
         )
 
+        await Payment.create({
+            orderId:order.id,
+            amount:parseFloat(totalPrice.toFixed(2)),
+            status:"PENDING"
+        },{transaction})
+
         await transaction.commit()
 
         return Order.findByPk(order.id,{
-            include:[{model:OrderItem, as:"orderItems"}]
+            include:[{model:OrderItem, as:"orderItems"},{model:Payment,as:"payment"}]
         })
     }
     catch(err){
@@ -67,7 +74,7 @@ const getUserOrders=async(userId)=>{
 
 const getAllActiveOrders=async()=>{
     return Order.findAll({
-        where:{status:{[Op.ne]:"Picked Up"}},
+        where:{status:{[Op.notIn]:["PAYMENT_PENDING","Picked Up"]}},
         include:[{model:OrderItem,as:"orderItems"}],
         order:[["createdAt","ASC"]]
     })
@@ -75,7 +82,7 @@ const getAllActiveOrders=async()=>{
 
 const updateOrderStatus=async(orderId,newStatus)=>{
     const validTransitions={
-        "Ordered":"Cooking",
+        "CONFIRMED":"Cooking",
         "Cooking":"Ready",
         "Ready":"Picked Up"
     }
