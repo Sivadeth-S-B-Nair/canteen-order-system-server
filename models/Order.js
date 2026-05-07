@@ -14,7 +14,7 @@ const Order=sequelize.define("Order",{
         allowNull:false
       },
       status:{
-        type:DataTypes.ENUM('Ordered','Cooking','Ready','Picked Up'),
+        type:DataTypes.ENUM('PAYMENT_PENDING','CONFIRMED','Cooking','Ready','Picked Up'),
         defaultValue:'Ordered'
       },
       cookingStartedAt:{

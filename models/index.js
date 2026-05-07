@@ -5,7 +5,7 @@ const MenuItem=require('./MenuItem')
 const Order=require('./Order')
 const OrderItem=require('./OrderItem')
 const MenuItemImage = require('./MenuItemImage')
-const Payment = require('./payment')
+const Payment = require('./Payment')
 
 // A user can have many active sessions (refresh tokens)
 User.hasMany(RefreshToken,{foreignKey:"user_id",as:'refreshTokens',onDelete:"CASCADE"})

@@ -1,4 +1,4 @@
-const { Payment, Order, OrderItem } = require("../models");
+const { Payment, Order, OrderItem,sequelize } = require("../models");
 
 const createPayment = async (orderId, amount) => {
   return Payment.create({ orderId, amount, status: "PENDING" });
@@ -33,7 +33,6 @@ const processPayment = async (orderId, method) => {
   await new Promise((resolve) => setTimeout(resolve, 3000));
   const success = Math.random() < 0.8;
 
-  const { sequelize } = require("../models");
   const t = await sequelize.transaction();
   try {
     if (success) {

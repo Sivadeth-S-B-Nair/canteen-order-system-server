@@ -1,7 +1,6 @@
 const {Op}=require("sequelize")
 const sequelize=require("../config/db")
 const {Order,OrderItem,MenuItem, Payment}=require("../models")
-const paymentService=require("../services/payment.service")
 
 const createOrder=async(userId,items)=>{
     const transaction=await sequelize.transaction()

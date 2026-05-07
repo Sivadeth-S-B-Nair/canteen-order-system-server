@@ -9,7 +9,6 @@ const createOrder = async (req, res, next) => {
     );
     //ADDED: emit to kitchen room after order is saved to DB
     // Kitchen sees new order instantly without refreshing
-    getIO().to("kitchen-room").emit("new-order", order);
     res.status(201).json({
       success: true,
       data: order,
