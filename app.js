@@ -11,6 +11,7 @@ const authRoutes = require("./routes/auth.routes");
 const menuRoutes = require("./routes/menu.routes");
 const orderRoutes = require("./routes/order.routes");
 const paymentRoutes=require("./routes/payment.routes")
+const ratingRoutes=require("./routes/rating.routes")
 const path = require("path");
 
 const app = express();
@@ -30,6 +31,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments",paymentRoutes)
+app.use("/api/ratings",ratingRoutes)
 
 app.use(require("./middlewares/errorHandler"));
 
