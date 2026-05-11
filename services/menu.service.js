@@ -1,22 +1,31 @@
-const { MenuItem, MenuItemImage } = require("../models");
+const { MenuItem, MenuItemImage,Rating, sequelize } = require("../models");
 
 const IMAGES_INCLUDE = {
   model: MenuItemImage,
   as: "images",
   attributes: ["id", "imageUrl", "displayOrder"],
+  separate:true,
   order: [["displayOrder", "ASC"]],
 };
+const RATINGS_INCLUDE={
+  model:Rating,
+  as:"ratings",
+  attributes:[]
+}
 
 const getMenuItems = async (role) => {
-  if (role === "kitchen") {
-    return MenuItem.findAll({
-      include: [IMAGES_INCLUDE],
-      order: [["category", "ASC"]],
-    });
-  }
+  const where = role === "kitchen" ? {} : { isAvailable: true };
+
   return MenuItem.findAll({
-    where: { isAvailable: true },
-    include: [IMAGES_INCLUDE],
+    where,
+    attributes: {
+      include: [
+        [sequelize.fn("AVG", sequelize.col("ratings.rating")), "averageRating"],
+        [sequelize.fn("COUNT", sequelize.col("ratings.id")), "ratingCount"],
+      ],
+    },
+    include: [IMAGES_INCLUDE, RATINGS_INCLUDE],
+    group: ["MenuItem.id"],
     order: [["category", "ASC"]],
   });
 };
