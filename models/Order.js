@@ -9,6 +9,10 @@ const Order=sequelize.define("Order",{
         onUpdate:'CASCADE',
         onDelete:'CASCADE'
       },
+      restaurant_id:{
+        type:DataTypes.INTEGER,
+        allowNull:true
+      },
       totalPrice:{
         type:DataTypes.DECIMAL(10,2),
         allowNull:false

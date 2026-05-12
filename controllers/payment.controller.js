@@ -28,7 +28,7 @@ const proccessPayment=async(req,res,next)=>{
         const result=await paymentService.processPayment(orderId,method)
 
         if(result.success){
-            getIO().to("kitchen-room").emit("new-order",result.order)
+            getIO().to(`kitchen-${result.order.restaurantId}-room`).emit("new-order",result.order)
             getIO().to(`user-${result.order.userId}-room`).emit("order-updated",result.order)
         }
         res.status(200).json({

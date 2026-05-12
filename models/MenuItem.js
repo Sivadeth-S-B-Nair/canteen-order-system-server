@@ -25,6 +25,10 @@ const MenuItem=sequelize.define("MenuItem",{
         type:DataTypes.BOOLEAN,
         defaultValue:true
       },
+      restaurant_id:{
+        type:DataTypes.INTEGER,
+        allowNull:true
+      }
 },
 {
   tableName: 'menu_items', 

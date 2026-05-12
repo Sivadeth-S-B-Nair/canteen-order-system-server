@@ -7,6 +7,16 @@ const OrderItem=require('./OrderItem')
 const MenuItemImage = require('./MenuItemImage')
 const Payment = require('./Payment')
 const Rating = require('./Rating')
+const Restaurant=require("./Restaurant")
+
+Restaurant.hasMany(User,{foreignKey:"restaurant_id",as:"staff"})
+User.belongsTo(Restaurant,{foreignKey:"restaurant_id",as:"restaurant"})
+
+Restaurant.hasMany(MenuItem,{foreignKey:"restaurant_id",as:"menuItems",onDelete:"CASCADE"})
+MenuItem.belongsTo(Restaurant,{foreignKey:"restaurant_id",as:"restaurant"})
+
+Restaurant.hasMany(Order,{foreignKey:"restaurant_id",as:"orders"})
+Order.belongsTo(Restaurant,{foreignKey:"restaurant_id",as:"restaurant"})
 
 // A user can have many active sessions (refresh tokens)
 User.hasMany(RefreshToken,{foreignKey:"user_id",as:'refreshTokens',onDelete:"CASCADE"})
@@ -39,4 +49,4 @@ Rating.belongsTo(Order,{foreignKey:"order_id",as:"order"})
 MenuItem.hasMany(Rating,{foreignKey:"menu_item_id",as:"ratings"})
 Rating.belongsTo(MenuItem,{foreignKey:"menu_item_id",as:"menuItem"})
 
-module.exports={sequelize,User,RefreshToken,MenuItem,Order,OrderItem,MenuItemImage,Payment,Rating}
+module.exports={sequelize,Restaurant,User,RefreshToken,MenuItem,Order,OrderItem,MenuItemImage,Payment,Rating}

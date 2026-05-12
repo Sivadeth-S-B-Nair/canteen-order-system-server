@@ -32,7 +32,7 @@ const getUserOrders = async (req, res, next) => {
 
 const getAllActiveOrders = async (req, res, next) => {
   try {
-    const orders = await orderService.getAllActiveOrders();
+    const orders = await orderService.getAllActiveOrders(req.user.restaurantId);
     res.status(200).json({
       success: true,
       data: orders,
@@ -48,11 +48,12 @@ const updateOrderStatus = async (req, res, next) => {
     const order = await orderService.updateOrderStatus(
       req.params.id,
       req.body.status,
+      req.user.restaurantId
     );
     //ADDED: emit to the specific user's room after status changes
     // Only that user gets notified — not everyone
     getIO().to(`user-${order.userId}-room`).emit("order-updated", order);
-    getIO().to(`kitchen-room`).emit("order-updated", order);
+    getIO().to(`kitchen-${order.restaurantId}-room`).emit("order-updated", order);
     res.status(200).json({
       success: true,
       data: order,

@@ -31,14 +31,46 @@ const protect=(req,res,next)=>{
     }
 }
 
-const kitchenOnly=(req,res,next)=>{
-    if(req.user?.role!="kitchen"){
+const verifySuperAdmin=(req,res,next)=>{
+    if(req.user?.role!="super_admin"){
         return res.status(403).json({
             success:false,
-            message:"Kitchen access only"
+            message:"Super admin access only"
         })
     }
     next()
 }
 
-module.exports={protect,kitchenOnly}
+const verifyRestaurantAdmin=(req,res,next)=>{
+    if(req.user.role!=="restaurant_admin"){
+        return res.status(403).json({
+            success:false,
+            message:"Restaurant admin access only"
+        })
+    }
+    if(!req.user.restaurantId){
+        return res.status(403).json({
+            success:false,
+            message:"No restaurant assigned to this account"
+        })
+    }
+    next()
+}
+
+const verifyKitchenStaff=(req,res,next)=>{
+    if(req.user.role!=="kitchen_staff" && req.user.role!=="restaurant_admin"){
+        return res.status(403).json({
+            success:false,
+            message:"Kitchen staff or restaurant admin access required"
+        })
+    }
+    if(!req.user.restaurantId){
+        return res.status(403).json({
+            success:false,
+            message:"No restaurant assigned to this account"
+        })
+    }
+    next()
+}
+
+module.exports={protect,verifySuperAdmin,verifyRestaurantAdmin,verifyKitchenStaff}

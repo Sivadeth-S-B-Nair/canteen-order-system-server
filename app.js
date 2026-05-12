@@ -12,6 +12,11 @@ const menuRoutes = require("./routes/menu.routes");
 const orderRoutes = require("./routes/order.routes");
 const paymentRoutes=require("./routes/payment.routes")
 const ratingRoutes=require("./routes/rating.routes")
+const adminRoutes=require("./routes/admin.routes")
+const restaurantRoutes=require("./routes/restaurant.routes")
+
+const restaurantController=require("./controllers/restaurant.controller")
+
 const path = require("path");
 
 const app = express();
@@ -32,6 +37,9 @@ app.use("/api/menu", menuRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments",paymentRoutes)
 app.use("/api/ratings",ratingRoutes)
+app.use("/api/admin",adminRoutes) 
+app.use("/api/restaurant",restaurantRoutes)
+app.get("/api/restaurants",restaurantController.getPublicRestaurants)
 
 app.use(require("./middlewares/errorHandler"));
 

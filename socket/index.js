@@ -29,6 +29,7 @@ const initSocket = (httpServer) => {
       // Attach user info to the socket — available in all event handlers
       socket.userId = decoded.userId;
       socket.role = decoded.role;
+      socket.restaurantId = decoded.restaurantId;
       next(); // allow connection
     } catch (err) {
       next(new Error("Invalid token"));
@@ -39,14 +40,20 @@ const initSocket = (httpServer) => {
   // Runs when a client successfully connects
   io.on("connection", (socket) => {
     console.log(
-      `Socket connected: ${socket.id} | User:${socket.userId} | Role:${socket.role}`,
+      `Socket connected: ${socket.id} | User:${socket.userId} | Role:${socket.role} | Restaurant:${socket.restaurantId}`,
     );
     // Join the correct room based on role
-    // Kitchen joins one shared room
+    // Staff joins the restaurant room
     // Each user joins their own private room
-    if (socket.role === "kitchen") {
-      socket.join("kitchen-room");
-      console.log(`Kitchen user ${socket.userId} joined the kitchen-room`);
+    if (socket.role === "kitchen_staff" || socket.role === "restaurant_admin") {
+      if (!socket.restaurantId) {
+        console.warn(
+          `Staff user ${socket.userId} has no restaurantId — not joining kitchen room`,
+        );
+      } else {
+        socket.join(`kitchen-${socket.restaurantId}-room`);
+        console.log(`${socket.role} ${socket.userId} joined kitchen-${socket.restaurantId}-room`);
+      }
     } else {
       socket.join(`user-${socket.userId}-room`);
       console.log(`User ${socket.userId} joined user-${socket.userId}-room`);
@@ -56,18 +63,18 @@ const initSocket = (httpServer) => {
       console.log(`Socket disconnected: ${socket.id} | Reason: ${reason}`);
     });
   });
-  return io
-};
+  return io;
+};      
 
 // getIO is called from controllers to emit events
 // This is the key function — controllers don't import io directly
 // They call getIO() which returns the singleton instance
 
-const getIO=()=>{
-    if(!io){
-        throw new Error("Socket.io not initialized")
-    }
-    return io
-}
+const getIO = () => {
+  if (!io) {
+    throw new Error("Socket.io not initialized");
+  }
+  return io;
+};
 
-module.exports={initSocket,getIO}
+module.exports = { initSocket, getIO };

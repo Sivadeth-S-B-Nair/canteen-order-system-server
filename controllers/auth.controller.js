@@ -4,7 +4,8 @@ const {COOKIE_OPTIONS}=require("../services/token.service")
 
 const register=async(req,res,next)=>{
     try{
-        const {name,email,password,role}=req.body
+        const {name,email,password}=req.body
+        const role="user"
 
         const existing=await authService.findUserByEmail(email)
         if(existing){
@@ -13,7 +14,7 @@ const register=async(req,res,next)=>{
             throw err
         }
 
-         const user=await authService.createUser(name,email,password,role)   
+         const user=await authService.createUser(name,email,password,role,null)   
          res.status(201).json({
             success:true,
             message:"Registered Successfully",
@@ -42,8 +43,8 @@ const login=async(req,res,next)=>{
             throw err
         }
 
-        const accessToken=tokenService.generateAccessToken(user.id,user.role)
-        const refreshToken=tokenService.generateRefreshToken(user.id,user.role)
+        const accessToken=tokenService.generateAccessToken(user.id,user.role,user.restaurantId)
+        const refreshToken=tokenService.generateRefreshToken(user.id,user.role,user.restaurantId)
 
         await tokenService.saveRefreshToken(user.id,refreshToken,userAgent)
 
@@ -52,7 +53,7 @@ const login=async(req,res,next)=>{
             success:true,
             message:"Login successfull",
             accessToken,
-            user:{id:user.id,name:user.name,email:user.email,role:user.role}
+            user:{id:user.id,name:user.name,email:user.email,role:user.role,restaurantId:user.restaurantId}
         })
     }
     catch(err){
@@ -84,8 +85,8 @@ const refresh=async(req,res,next)=>{
             throw err
         }
 
-        const newAccessToken=tokenService.generateAccessToken(user.id,user.role)
-        const newRefreshToken=tokenService.generateRefreshToken(user.id,user.role)
+        const newAccessToken=tokenService.generateAccessToken(user.id,user.role,user.restaurantId)
+        const newRefreshToken=tokenService.generateRefreshToken(user.id,user.role,user.restaurantId)
 
         await tokenService.rotateRefreshToken(refreshToken,newRefreshToken)
 
@@ -93,7 +94,7 @@ const refresh=async(req,res,next)=>{
         res.status(200).json({
             success:true,
             accessToken:newAccessToken,
-            user:{id:user.id,name:user.name,email:user.email,role:user.role}
+            user:{id:user.id,name:user.name,email:user.email,role:user.role,restaurantId:user.restaurantId}
         })
     }
     catch(err){

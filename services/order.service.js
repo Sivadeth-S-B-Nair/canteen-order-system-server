@@ -7,6 +7,7 @@ const createOrder=async(userId,items)=>{
 
     try{
         let totalPrice=0
+        const resolvedRestaurantId=null
         const itemsToCreate=[]
 
         for(const item of items){
@@ -20,6 +21,14 @@ const createOrder=async(userId,items)=>{
             }
             if(!menuItem.isAvailable){
                 const err=new Error(`${menuItem.name} is currently unavailable`)
+                err.status=400
+                throw err
+            }
+            if(resolvedRestaurantId===null){
+                resolvedRestaurantId=menuItem.restaurantId
+            }
+            else if(resolvedRestaurantId!==menuItem.resolvedRestaurantId){
+                const err=new Error("All items in an order must be from the same restaurant")
                 err.status=400
                 throw err
             }
@@ -37,6 +46,7 @@ const createOrder=async(userId,items)=>{
 
         const order=await Order.create({
             userId,
+            restaurantId:resolvedRestaurantId,
             totalPrice:parseFloat(totalPrice.toFixed(2)),
             status:"PAYMENT_PENDING"
         },{transaction})
@@ -71,21 +81,21 @@ const getUserOrders=async(userId)=>{
     })
 }
 
-const getAllActiveOrders=async()=>{
+const getAllActiveOrders=async(resolvedRestaurantId)=>{
     return Order.findAll({
-        where:{status:{[Op.notIn]:["PAYMENT_PENDING","Picked Up"]}},
+        where:{restaurantId,status:{[Op.notIn]:["PAYMENT_PENDING","Picked Up"]}},
         include:[{model:OrderItem,as:"orderItems"}],
         order:[["createdAt","ASC"]]
     })
 }
 
-const updateOrderStatus=async(orderId,newStatus)=>{
+const updateOrderStatus=async(orderId,newStatus,restaurantId)=>{
     const validTransitions={
         "CONFIRMED":"Cooking",
         "Cooking":"Ready",
         "Ready":"Picked Up"
     }
-    const order=await Order.findByPk(orderId)
+    const order=await Order.findOne({where:{id:orderId,restaurantId}})
     if(!order){
         const err=new Error("Order not found")
         err.status=404
