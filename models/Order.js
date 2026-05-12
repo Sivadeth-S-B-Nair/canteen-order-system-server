@@ -9,7 +9,7 @@ const Order=sequelize.define("Order",{
         onUpdate:'CASCADE',
         onDelete:'CASCADE'
       },
-      restaurant_id:{
+      restaurantId:{
         type:DataTypes.INTEGER,
         allowNull:true
       },
@@ -19,7 +19,7 @@ const Order=sequelize.define("Order",{
       },
       status:{
         type:DataTypes.ENUM('PAYMENT_PENDING','CONFIRMED','Cooking','Ready','Picked Up'),
-        defaultValue:'Ordered'
+        defaultValue:'PAYMENT_PENDING'
       },
       cookingStartedAt:{
         type:DataTypes.DATE,

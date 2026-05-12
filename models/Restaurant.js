@@ -3,10 +3,10 @@ const sequelize=require("../config/db")
 
 const Restaurant=sequelize.define("Restaurant",{
     name:{
-        type:DataTypes.INTEGER,
+        type:DataTypes.STRING,
         allowNull:false,
         validate:{
-            notEmpty:"Restaurant name cannot be empty"
+            notEmpty:{ msg: "Restaurant name cannot be empty" }
         },
     },
     location:{

@@ -24,7 +24,7 @@ const submitRating = async (userId, orderId, menuItemId, rating, review) => {
   }
 
   try {
-    const newRating = Rating.create({
+    const newRating =await Rating.create({
       userId,
       orderId,
       menuItemId,

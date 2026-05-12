@@ -70,6 +70,6 @@ module.exports = {
      */
     await queryInterface.dropTable("payments")
 
-    await queryInterface.sequelize.query(`ALTER TABLE orders MODIFY COLUMN status ENUM("Ordered","Cooking","Ready","Picked Up") NOT NULL DEFAULT "Ordered`)
+    await queryInterface.sequelize.query(`ALTER TABLE orders MODIFY COLUMN status ENUM("Ordered","Cooking","Ready","Picked Up") NOT NULL DEFAULT "Ordered"`)
   },
 };

@@ -7,7 +7,7 @@ const createOrder=async(userId,items)=>{
 
     try{
         let totalPrice=0
-        const resolvedRestaurantId=null
+        let resolvedRestaurantId=null
         const itemsToCreate=[]
 
         for(const item of items){
@@ -27,7 +27,7 @@ const createOrder=async(userId,items)=>{
             if(resolvedRestaurantId===null){
                 resolvedRestaurantId=menuItem.restaurantId
             }
-            else if(resolvedRestaurantId!==menuItem.resolvedRestaurantId){
+            else if(resolvedRestaurantId!==menuItem.restaurantId){
                 const err=new Error("All items in an order must be from the same restaurant")
                 err.status=400
                 throw err
@@ -81,7 +81,7 @@ const getUserOrders=async(userId)=>{
     })
 }
 
-const getAllActiveOrders=async(resolvedRestaurantId)=>{
+const getAllActiveOrders=async(restaurantId)=>{
     return Order.findAll({
         where:{restaurantId,status:{[Op.notIn]:["PAYMENT_PENDING","Picked Up"]}},
         include:[{model:OrderItem,as:"orderItems"}],
