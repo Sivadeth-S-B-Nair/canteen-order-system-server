@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const { Restaurant, User } = require("../models");
+const emailService=require("./email.service")
 
 const createRestaurant = async ({ name, location }) => {
   return Restaurant.create({ name, location });
@@ -31,8 +32,11 @@ const createRestaurantAdmin = async ({
     role: "restaurant_admin",
     restaurantId,
   });
+
+  const emailSent=await emailService.sendRestaurantAdminCredentials({name,email,password,restaurantName:restaurant.name})
+
   const {password:_p,...safeUser}=user.toJSON()
-  return safeUser
+  return {user:safeUser,emailSent}
 };
 const listRestaurants=async(activeOnly=false)=>{
     const where=activeOnly?{isActive:true}:{}

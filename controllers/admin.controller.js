@@ -20,13 +20,13 @@ const createRestaurant=async(req,res,next)=>{
 const createRestaurantAdmin=async(req,res,next)=>{
     try{
         const {name,email,password,restaurantId}=req.body
-        if(!name||!email||!password||!restaurantId){
+        if(!name||!email||!password||!restaurantId){    
             const err=new Error("name, email, password, and restaurantId are required")
             err.status=400
             throw err
-        }
-        const user=await adminService.createRestaurantAdmin({name,email,password,restaurantId})
-        res.status(201).json({success:true,data:user})
+        } 
+        const {user,emailSent}=await adminService.createRestaurantAdmin({name,email,password,restaurantId})
+        res.status(201).json({success:true,data:user,emailSent,message:emailSent?'Account created and credentials emailed successfully.':'Account created but the credentials email could not be sent. Please share login details manually.'})
     }
     catch(err){
         next(err)
