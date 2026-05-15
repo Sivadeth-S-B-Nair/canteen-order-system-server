@@ -14,6 +14,7 @@ const paymentRoutes=require("./routes/payment.routes")
 const ratingRoutes=require("./routes/rating.routes")
 const adminRoutes=require("./routes/admin.routes")
 const restaurantRoutes=require("./routes/restaurant.routes")
+const profileRoutes    = require('./routes/profile.routes');  
 
 const restaurantController=require("./controllers/restaurant.controller")
 
@@ -39,6 +40,8 @@ app.use("/api/payments",paymentRoutes)
 app.use("/api/ratings",ratingRoutes)
 app.use("/api/admin",adminRoutes) 
 app.use("/api/restaurant",restaurantRoutes)
+app.use('/api/profile',    profileRoutes); 
+
 app.get("/api/restaurants",restaurantController.getPublicRestaurants)
 
 app.use(require("./middlewares/errorHandler"));

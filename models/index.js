@@ -8,6 +8,8 @@ const MenuItemImage = require('./MenuItemImage')
 const Payment = require('./Payment')
 const Rating = require('./Rating')
 const Restaurant=require("./Restaurant")
+const UserProfile=require("./UserProfile")
+const UserAddress=require("./UserAddress")
 
 Restaurant.hasMany(User,{foreignKey:"restaurant_id",as:"staff"})
 User.belongsTo(Restaurant,{foreignKey:"restaurant_id",as:"restaurant"})
@@ -46,7 +48,13 @@ Rating.belongsTo(User,{foreignKey:"user_id",as:"user"})
 Order.hasMany(Rating,{foreignKey:"order_id",as:"ratings"})
 Rating.belongsTo(Order,{foreignKey:"order_id",as:"order"})
 
-MenuItem.hasMany(Rating,{foreignKey:"menu_item_id",as:"ratings"})
+MenuItem.hasOne(Rating,{foreignKey:"menu_item_id",as:"ratings"})
 Rating.belongsTo(MenuItem,{foreignKey:"menu_item_id",as:"menuItem"})
 
-module.exports={sequelize,Restaurant,User,RefreshToken,MenuItem,Order,OrderItem,MenuItemImage,Payment,Rating}
+User.hasMany(UserProfile,{foreignKey:"user_id",as:"profile",onDelete:"CASCADE"})
+UserProfile.belongsTo(User,{foreignKey:"user_id",as:"user"})
+
+User.hasMany(UserAddress,{foreignKey:"user_id",as:"addresses",onDelete:"CASCADE"})
+UserAddress.belongsTo(User,{foreignKey:"user_id",as:"user"})
+
+module.exports={sequelize,Restaurant,User,RefreshToken,MenuItem,Order,OrderItem,MenuItemImage,Payment,Rating,UserProfile,UserAddress}
