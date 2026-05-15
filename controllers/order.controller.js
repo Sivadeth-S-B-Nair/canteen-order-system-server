@@ -45,7 +45,7 @@ const getAllActiveOrders = async (req, res, next) => {
 
 const updateOrderStatus = async (req, res, next) => {
   try {
-    const order = await orderService.updateOrderStatus(
+    const {order,emailSent} = await orderService.updateOrderStatus(
       req.params.id,
       req.body.status,
       req.user.restaurantId

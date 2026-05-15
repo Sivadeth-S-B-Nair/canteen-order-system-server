@@ -44,7 +44,7 @@ Your restaurant admin account has been created on the Canteen Platform.
 Restaurant : ${restaurantName}
 Email      : ${email}
 Password   : ${password}
- 
+    
 Login here: ${loginUrl}
  
 IMPORTANT: Please change your password immediately after your first login.
@@ -209,5 +209,21 @@ If you did not expect this email, please contact your platform administrator.
 
     return sendMail({to:email,subject,text,html})
 }
+const sendOrderReadyEmail=async({email,name,orderId})=>{
+    const subject = `Your order #${orderId} is Ready for Pickup!`;
+    const text = `Hi ${name || 'there'},\n\nGood news! Your order #${orderId} is fresh, hot, and ready for pickup.\n\nPlease head to the counter.\n\n— The Canteen Platform Team`;
+    
+    const html = `
+    <div style="font-family: sans-serif; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #2563eb;">🍽️ Order Ready!</h2>
+        <p>Hi <strong>${name || 'there'}</strong>,</p>
+        <p>Good news! Your order <strong>#${orderId}</strong> is ready for pickup.</p>
+        <p>Please head to the counter to grab your food.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+        <p style="font-size: 12px; color: #a1a1aa;">— The Canteen Platform Team</p>
+    </div>`;
 
-module.exports={sendRestaurantAdminCredentials}
+    return sendMail({to:email,subject,text,html})
+}
+
+module.exports={sendRestaurantAdminCredentials,sendOrderReadyEmail}
