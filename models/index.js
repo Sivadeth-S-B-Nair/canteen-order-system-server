@@ -51,7 +51,7 @@ Rating.belongsTo(Order,{foreignKey:"order_id",as:"order"})
 MenuItem.hasMany(Rating,{foreignKey:"menu_item_id",as:"ratings"})
 Rating.belongsTo(MenuItem,{foreignKey:"menu_item_id",as:"menuItem"})
 
-User.hasMany(UserProfile,{foreignKey:"user_id",as:"profile",onDelete:"CASCADE"})
+User.hasOne(UserProfile,{foreignKey:"user_id",as:"profile",onDelete:"CASCADE"})
 UserProfile.belongsTo(User,{foreignKey:"user_id",as:"user"})
 
 User.hasMany(UserAddress,{foreignKey:"user_id",as:"addresses",onDelete:"CASCADE"})

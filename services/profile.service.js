@@ -5,7 +5,7 @@ const PROFILE_INCLUDE = [
   {
     model: UserAddress,
     as: "addresses",
-    seperate:true,
+    separate:true,
     order: [
       ["is_default", "DESC"],
       ["id", "ASC"],
