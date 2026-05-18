@@ -5,6 +5,7 @@ const PROFILE_INCLUDE = [
   {
     model: UserAddress,
     as: "addresses",
+    seperate:true,
     order: [
       ["is_default", "DESC"],
       ["id", "ASC"],
@@ -25,7 +26,7 @@ const getProfile = async (userId) => {
     err.status = 404;
     throw err;
   }
-  return safeUser;
+  return safeUser(user);
 };
 
 const updateProfile = async (userId, { name, phone, avatarUrl }) => {
@@ -34,12 +35,12 @@ const updateProfile = async (userId, { name, phone, avatarUrl }) => {
     if (name) {
       await User.update({ name }, { where: { id: userId }, transaction: t });
     }
-    const [profile] = await UserProfile.findOrCreate({
+    const [profile,created] = await UserProfile.findOrCreate({
       where: { userId },
       defaults: { userId, phone: phone || null, avatarUrl: avatarUrl || null },
       transaction: t,
     });
-    if (profile._options?.isNewRecord == false || profile.id) {
+    if (!created) {
       await profile.update(
         {
           phone: phone ?? profile.phone,
