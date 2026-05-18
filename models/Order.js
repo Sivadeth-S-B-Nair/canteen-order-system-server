@@ -21,6 +21,19 @@ const Order=sequelize.define("Order",{
         type:DataTypes.ENUM('PAYMENT_PENDING','CONFIRMED','Cooking','Ready','Picked Up'),
         defaultValue:'PAYMENT_PENDING'
       },
+      deliveryType:{
+        type:DataTypes.ENUM("dine_in","delivery"),
+        allowNull:false,
+        defaultValue:"dine_in"
+      },
+      deliveryAddressId:{
+        type:DataTypes.INTEGER,
+        allowNull:true
+      },
+      specialInstructions:{
+        type:DataTypes.TEXT,
+        allowNull:true
+      },
       cookingStartedAt:{
         type:DataTypes.DATE,
       },

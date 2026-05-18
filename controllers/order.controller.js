@@ -3,10 +3,19 @@ const { getIO } = require("../socket");
 
 const createOrder = async (req, res, next) => {
   try {
-    const order = await orderService.createOrder(
-      req.user.userId,
-      req.body.items,
-    );
+    const { items, deliveryType, deliveryAddressId, specialInstructions } =
+      req.body;
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      const err = new Error("items array are required and cannot be empty");
+      err.status = 400;
+      throw err;
+    }
+    const order = await orderService.createOrder(req.user.userId, {
+      items,
+      deliveryType: deliveryType || null,
+      deliveryAddressId: deliveryAddressId || null,
+      specialInstructions: specialInstructions || null,
+    });
     //ADDED: emit to kitchen room after order is saved to DB
     // Kitchen sees new order instantly without refreshing
     res.status(201).json({
@@ -40,20 +49,21 @@ const getAllActiveOrders = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-                                                                                                                                                                                
 };
 
 const updateOrderStatus = async (req, res, next) => {
   try {
-    const {order,emailSent} = await orderService.updateOrderStatus(
+    const { order, emailSent } = await orderService.updateOrderStatus(
       req.params.id,
       req.body.status,
-      req.user.restaurantId
+      req.user.restaurantId,
     );
     //ADDED: emit to the specific user's room after status changes
     // Only that user gets notified — not everyone
     getIO().to(`user-${order.userId}-room`).emit("order-updated", order);
-    getIO().to(`kitchen-${order.restaurantId}-room`).emit("order-updated", order);
+    getIO()
+      .to(`kitchen-${order.restaurantId}-room`)
+      .emit("order-updated", order);
     res.status(200).json({
       success: true,
       data: order,

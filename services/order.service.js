@@ -3,7 +3,7 @@ const sequelize = require("../config/db");
 const { Order, OrderItem, MenuItem, Payment, User } = require("../models");
 const emailService = require("./email.service");
 
-const createOrder = async (userId, items) => {
+const createOrder = async (userId, {items,deliveryType="dine_in",deliveryAddressId=null,specialInstructions=null}) => {
   const transaction = await sequelize.transaction();
 
   try {
@@ -51,6 +51,9 @@ const createOrder = async (userId, items) => {
         restaurantId: resolvedRestaurantId,
         totalPrice: parseFloat(totalPrice.toFixed(2)),
         status: "PAYMENT_PENDING",
+        deliveryType,
+        deliveryAddressId,
+        specialInstructions
       },
       { transaction },
     );
