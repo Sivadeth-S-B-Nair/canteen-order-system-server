@@ -43,4 +43,13 @@ const listRestaurants=async(req,res,next)=>{
     }
 }
 
-module.exports={createRestaurant,createRestaurantAdmin,listRestaurants}
+const getRestaurantSummary = async (req, res, next) => {
+  try {
+    const summary = await adminService.getRestaurantSummary(req.params.id);
+    res.status(200).json({ success: true, data: summary });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports={createRestaurant,createRestaurantAdmin,listRestaurants,getRestaurantSummary}
