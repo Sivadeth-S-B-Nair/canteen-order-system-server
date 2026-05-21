@@ -1,10 +1,8 @@
 const bcrypt = require("bcryptjs");
-const { Restaurant, User, Order,OrderItem } = require("../models");
-const emailService=require("./email.service")
+const { Restaurant, User, Order, OrderItem } = require("../models");
+const emailService = require("./email.service");
 const sequelize = require("../config/db");
 const { Op, QueryTypes } = require("sequelize");
-
-
 
 const createRestaurant = async ({ name, location }) => {
   return Restaurant.create({ name, location });
@@ -37,26 +35,31 @@ const createRestaurantAdmin = async ({
     restaurantId,
   });
 
-  const emailSent=await emailService.sendRestaurantAdminCredentials({name,email,password,restaurantName:restaurant.name})
+  const emailSent = await emailService.sendRestaurantAdminCredentials({
+    name,
+    email,
+    password,
+    restaurantName: restaurant.name,
+  });
 
-  const {password:_p,...safeUser}=user.toJSON()
-  return {user:safeUser,emailSent}
+  const { password: _p, ...safeUser } = user.toJSON();
+  return { user: safeUser, emailSent };
 };
-const listRestaurants=async(activeOnly=false)=>{
-    const where=activeOnly?{isActive:true}:{}
-    return Restaurant.findAll({where,order:[["name","ASC"]]})
-}
+const listRestaurants = async (activeOnly = false) => {
+  const where = activeOnly ? { isActive: true } : {};
+  return Restaurant.findAll({ where, order: [["name", "ASC"]] });
+};
 
 const getRestaurantSummary = async (restaurantId) => {
   const id = parseInt(restaurantId, 10);
- 
+
   const restaurant = await Restaurant.findByPk(id);
   if (!restaurant) {
     const err = new Error(`Restaurant ${id} not found`);
     err.status = 404;
     throw err;
   }
- 
+
   const [statsRow, staff, recentOrders] = await Promise.all([
     sequelize.query(
       `
@@ -78,9 +81,9 @@ const getRestaurantSummary = async (restaurantId) => {
           WHERE o.restaurant_id = :id
             AND p.status = 'PAID')                           AS totalRevenue
       `,
-      { replacements: { id }, type: QueryTypes.SELECT }
+      { replacements: { id }, type: QueryTypes.SELECT },
     ),
- 
+
     // ── Staff list ─────────────────────────────────────────────────────────
     User.findAll({
       where: {
@@ -104,20 +107,81 @@ const getRestaurantSummary = async (restaurantId) => {
       limit: 5,
     }),
   ]);
-    const raw = statsRow[0];
- 
+  const raw = statsRow[0];
+
   return {
     restaurant: restaurant.toJSON(),
     stats: {
-      menuCount:    parseInt(raw.menuCount, 10)      || 0,
-      staffCount:   parseInt(raw.staffCount, 10)     || 0,
-      orderCount:   parseInt(raw.orderCount, 10)     || 0,
-      totalRevenue: parseFloat(raw.totalRevenue)     || 0,
+      menuCount: parseInt(raw.menuCount, 10) || 0,
+      staffCount: parseInt(raw.staffCount, 10) || 0,
+      orderCount: parseInt(raw.orderCount, 10) || 0,
+      totalRevenue: parseFloat(raw.totalRevenue) || 0,
     },
     staff,
     recentOrders,
   };
 };
- 
 
-module.exports={createRestaurant,createRestaurantAdmin,listRestaurants,getRestaurantSummary}
+const listUsers = async ({ search = "", page = 1, limit = 20 }) => {
+  const pageNum = Math.max(1, parseInt(page, 10));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+  // Calculates how many records the database should skip before returning results. 
+  // (e.g., Page 2 with a limit of 20 skips the first 20 records).
+  const offset = (pageNum - 1) * limitNum;
+  const where = search
+    ? {
+        [Op.or]: [
+          { name: { [Op.like]: `${search}%` } },
+          { email: { [Op.like]: `${search}%` } },
+        ],
+      }
+    : {};
+  const { rows, count } = await User.findAndCountAll({
+    where,
+    attributes: ["id", "name", "email", "role", "restaurantId", "createdAt"],
+    include: [
+      {
+        model: Restaurant,
+        as: "restaurant",
+        attributes: ["id", "name"],
+        required: false,
+      },
+    ],
+    order: [["createdAt", "DESC"]],
+    limit: limitNum,
+    offset,
+    distinct: true,
+  });
+  return {
+    data: rows,
+    total: count,
+    page: pageNum,
+    totalPages: Math.ceil(count / limitNum),
+  };
+};
+
+const getUserOrdersAsAdmin= async(userId)=>{
+  const user=await User.findByPk(userId,{
+    attributes:["id","name","email"]
+  })
+  if(!user){
+    const err=new Error(`User ${userId} not found`)
+    err.status=404
+    throw err
+  }
+  const orders=await Order.findAll({
+    where:{userId},
+    include:[{model:OrderItem,as:"orderItems"}],
+    order:[["createdAt","DESC"]]
+  })
+  return {user,orders}
+}
+
+module.exports = {
+  createRestaurant,
+  createRestaurantAdmin,
+  listRestaurants,
+  getRestaurantSummary,
+  listUsers,
+  getUserOrdersAsAdmin
+};

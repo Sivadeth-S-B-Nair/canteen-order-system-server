@@ -27,5 +27,7 @@ router.get(
   verifySuperAdmin,
   adminController.getRestaurantSummary,
 );
+router.get("/users",protect,verifySuperAdmin,adminController.listUsers)
+router.get("/users/:userId/orders",protect,verifySuperAdmin,adminController.getUserOrdersAsAdmin)
 
 module.exports = router;

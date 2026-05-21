@@ -52,4 +52,31 @@ const getRestaurantSummary = async (req, res, next) => {
   }
 };
 
-module.exports={createRestaurant,createRestaurantAdmin,listRestaurants,getRestaurantSummary}
+const listUsers=async(req,res,next)=>{
+    try{
+        const {search="",page=1,limit=20}=req.query
+        const result=await adminService.listUsers({search,page,limit})
+        res.status(200).json({
+            success:true,
+            ...result
+        })
+    }
+    catch(err){
+        next(err)
+    }
+}
+
+const getUserOrdersAsAdmin=async(req,res,next)=>{
+    try{
+        const result=await adminService.getUserOrdersAsAdmin(req.params.userId)
+        res.status(200).json({
+            success:true,
+            data:result
+        })
+    }
+    catch(err){
+        next(err)
+    }
+}
+
+module.exports={createRestaurant,createRestaurantAdmin,listRestaurants,getRestaurantSummary,listUsers,getUserOrdersAsAdmin}
