@@ -2,12 +2,22 @@ const { Op } = require("sequelize");
 const sequelize = require("../config/db");
 const { Order, OrderItem, MenuItem, Payment, User } = require("../models");
 const emailService = require("./email.service");
+const promoService = require("./promo.service");
 
-const createOrder = async (userId, {items,deliveryType="dine_in",deliveryAddressId=null,specialInstructions=null}) => {
+const createOrder = async (
+  userId,
+  {
+    items,
+    deliveryType = "dine_in",
+    deliveryAddressId = null,
+    specialInstructions = null,
+    promoCode = null,
+  },
+) => {
   const transaction = await sequelize.transaction();
 
   try {
-    let totalPrice = 0;
+    let subTotal = 0;
     let resolvedRestaurantId = null;
     const itemsToCreate = [];
 
@@ -35,7 +45,7 @@ const createOrder = async (userId, {items,deliveryType="dine_in",deliveryAddress
       }
 
       const price = parseFloat(menuItem.price);
-      totalPrice += price * item.qty;
+      subTotal += price * item.qty;
 
       itemsToCreate.push({
         menuItemId: menuItem.id,
@@ -45,15 +55,34 @@ const createOrder = async (userId, {items,deliveryType="dine_in",deliveryAddress
       });
     }
 
+    let discountAmount = 0;
+    let appliedPromoId = null;
+
+    if (promoCode) {
+      const { promo, discountAmount: discount } =
+        await promoService.validatePromo({
+          code: promoCode,
+          restaurantId: resolvedRestaurantId,
+          userId,
+          subTotal,
+        });
+      discountAmount = discount;
+      appliedPromoId = promo.id;
+    }
+
+    const totalPrice = parseFloat((subTotal - discountAmount).toFixed(2));
+
     const order = await Order.create(
       {
         userId,
         restaurantId: resolvedRestaurantId,
-        totalPrice: parseFloat(totalPrice.toFixed(2)),
+        totalPrice,
+        discountAmount: parseFloat(discountAmount.toFixed(2)),
+        promoCodeId: appliedPromoId,
         status: "PAYMENT_PENDING",
         deliveryType,
         deliveryAddressId,
-        specialInstructions
+        specialInstructions,
       },
       { transaction },
     );
@@ -71,6 +100,16 @@ const createOrder = async (userId, {items,deliveryType="dine_in",deliveryAddress
       },
       { transaction },
     );
+
+    if (appliedPromoId) {
+      await promoService.redeemPromo({
+        promoId: appliedPromoId,
+        userId,
+        orderId: order.id,
+        discountAmount,
+        t: transaction,
+      });
+    }
 
     await transaction.commit();
 
@@ -148,10 +187,10 @@ const updateOrderStatus = async (orderId, newStatus, restaurantId) => {
   }
 
   await order.update(updateData);
-  const updatedOrder =await Order.findByPk(orderId, {
+  const updatedOrder = await Order.findByPk(orderId, {
     include: [{ model: OrderItem, as: "orderItems" }],
   });
-  return { order:updatedOrder, emailSent };
+  return { order: updatedOrder, emailSent };
 };
 
 module.exports = {
