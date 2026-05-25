@@ -28,6 +28,21 @@ const Payment = sequelize.define("Payment", {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  razorpayOrderId:{
+    type:DataTypes.STRING(100),
+    allowNull:true,
+    defaultValue:null
+  },
+  razorpayPaymentId:{
+    type:DataTypes.STRING(100),
+    allowNull:true,
+    defaultValue:null
+  },
+  razorpaySignature:{
+    type:DataTypes.STRING(512),
+    allowNull:true,
+    defaultValue:null
+  }
 },
 {
     tableName:"payments",

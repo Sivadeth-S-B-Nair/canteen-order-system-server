@@ -1,11 +1,42 @@
-const { Payment, Order, OrderItem,sequelize } = require("../models");
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
+const { Payment, Order, OrderItem, sequelize } = require("../models");
 
-const createPayment = async (orderId, amount) => {
-  return Payment.create({ orderId, amount, status: "PENDING" });
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+const createRazerpayOrder = async (internalOrderId, amountInRupees) => {
+  const options = {
+    amount: Math.round(parseFloat(amountInRupees) * 100), //paise
+    currency: "INR",
+    receipt: `order_${internalOrderId}`,
+    payment_capture: 1, //auto-capture (no manual capture needed)
+  };
+  return razorpay.orders.create(options);
 };
 
-const processPayment = async (orderId, method) => {
-  const payment = await Payment.findOne({ where: { orderId } });
+const verifyRazorpaySignature = (
+  razorpayOrderId,
+  razorpayPaymentId,
+  signature,
+) => {
+  const body = razorpayOrderId + "|" + razorpayPaymentId;
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(body)
+    .digest("hex");
+  return crypto.timingSafeEqual(
+    Buffer.from(expectedSignature, "hex"),
+    Buffer.from(signature, "hex"),
+  );
+};
+
+const initiatePayment = async (internalOrderId) => {
+  const payment = await Payment.findOne({
+    where: { orderId: internalOrderId },
+  });
   if (!payment) {
     const err = new Error("Payment record not found for this order");
     err.status = 404;
@@ -16,9 +47,7 @@ const processPayment = async (orderId, method) => {
     err.status = 400;
     throw err;
   }
-  const order = await Order.findByPk(orderId, {
-    include: [{ model: OrderItem, as: "orderItems" }],
-  });
+  const order = await Order.findByPk(internalOrderId);
   if (!order) {
     const err = new Error("Order not found");
     err.status = 404;
@@ -30,54 +59,184 @@ const processPayment = async (orderId, method) => {
     throw err;
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-  const success = Math.random() < 0.8;
+  // await new Promise((resolve) => setTimeout(resolve, 3000));
+  // const success = Math.random() < 0.8;
 
-  const t = await sequelize.transaction();
-  try {
-    if (success) {
-      const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-      await payment.update(
-        { status: "PAID", method, transactionId, paidAt: new Date() },
-        { transaction: t },
-      );
-      await order.update({ status: "CONFIRMED" }, { transaction: t });
-      await t.commit();
-
-      const updatedOrder=await Order.findByPk(orderId,{include:[{model:OrderItem,as:"orderItems"}]})
-      
-      return {success:true,payment:payment.toJSON(),order:updatedOrder}
-    }
-    else{
-        await payment.update({status:"FAILED",method},{transaction:t})
-        await t.commit()
-        return {success:false,payment:payment.toJSON(),order}
-    }
-  } catch (err) {
-    await t.rollback()
-    throw err
+  if (payment.razorpayOrderId) {
+    return {
+      razorpayOrderId: payment.razorpayOrderId,
+      amount: payment.amount,
+      currency: "INR",
+      keyId: process.env.RAZORPAY_KEY_ID,
+    };
   }
+
+  const rzpOrder = await createRazerpayOrder(internalOrderId, payment.amount);
+  await payment.update({ razorpayOrderId: rzpOrder.id });
+
+  return {
+    razorpayOrderId: rzpOrder.id,
+    amount: payment.amount,
+    currency: "INR",
+    keyId: process.env.RAZORPAY_KEY_ID,
+  };
+
 };
 
-const getPaymentByOrder=async(orderId)=>{
-    return Payment.findOne({where:{orderId}})
-}
+const verifyAndConfirmPayment = async (
+  internalOrderId,
+  { razorpayOrderId, razorpayPaymentId, razorpaySignature },
+) => {
+  const payment = await Payment.findOne({
+    where: { orderId: internalOrderId },
+  });
+  if (!payment) {
+    const err = new Error("Payment record not found");
+    err.status = 404;
+    throw err;
+  }
+  if (payment.status === "PAID") {
+    const order = await Order.findByPk(internalOrderId, {
+      include: [{ model: OrderItem, as: "orderItems" }],
+    });
+    return { success: true, payment: payment.toJSON(), order };
+  }
+  let isValid = false;
+  try {
+    isValid = verifyRazorpaySignature(
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    );
+  } catch (err) {
+    isValid = false;
+  }
+  if (!isValid) {
+    await payment.update({ status: "FAILED", razorpayPaymentId });
+    const err = new Error("Payment verification failed - signature mismatch");
+    err.status = 400;
+    throw err;
+  }
+  const t = await sequelize.transaction();
+  try {
+    await payment.update(
+      {
+        status: "PAID",
+        razorpayPaymentId,
+        razorpaySignature,
+        transactionId: razorpayOrderId,
+        paidAt: new Date(),
+      },
+      {
+        transaction: t,
+      },
+    );
+    await Order.update(
+      { status: "CONFIRMED" },
+      { where: { id: internalOrderId }, transaction: t },
+    );
+    await t.commit();
+  } catch (err) {
+    await t.rollback();
+    throw err;
+  }
+  const updatedOrder = await Order.findByPk(internalOrderId, {
+    include: [{ model: OrderItem, as: "orderItems" }],
+  });
+  return { success: true, payment: payment.toJSON(), order: updatedOrder };
+};
 
-const resetFailedPayment=async(orderId)=>{
-    const payment=await Payment.findOne({where:{orderId}})
+// ─── handleWebhook ────────────────────────────────────────────────────────────
+// Razorpay can also call your server directly on payment events.
+// This is a server-to-server call so the frontend is not involved.
 
-    if(!payment){
-        const err=new Error("Payment not found")
-        err.status=404
-        throw err
+const handleWebhook = async (rawBody, signature) => {
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RAZORPAY_WEBHOOK_SECRET)
+    .update(rawBody)
+    .digest("hex");
+  const isValid = crypto.timingSafeEqual(
+    Buffer.from(expectedSignature, "hex"),
+    Buffer.from(signature, "hex"),
+  );
+  if (!isValid) {
+    const err = new Error("Invalid webhook signature");
+    err.status = 400;
+    throw err;
+  }
+  const event = JSON.parse(rawBody);
+  const eventType = event.event;
+  const paymentEntity = event.payload?.payment?.entity;
+  if (!paymentEntity) {
+    return { handled: false };
+  }
+  const razorpayOrderId = paymentEntity.order_id;
+  const razorpayPaymentId = paymentEntity.id;
+  const payment = await Payment.findOne({ where: { razorpayOrderId } });
+  if (!payment) {
+    return { handled: false };
+  }
+  if (eventType == "payment.captured" && payment.status !== "PAID") {
+    const t = await sequelize.transaction();
+    try {
+      await payment.update(
+        { status: "PAID", razorpayPaymentId, transactionId: razorpayOrderId },
+        { transaction: t },
+      );
+      await Order.update(
+        { status: "CONFIRMED" },
+        { where: { id: payment.orderId }, transaction: t },
+      );
+      await t.commit()
+    } catch (err) {
+      await t.rollback()
+      throw err
     }
-    if(payment.status!=="FAILED"){
-        const err=new Error("Only failed payments can be retried")
-        err.status=400
-        throw err
-    }
-    await payment.update({status:"PENDING",method:null,transactionId:null,paidAt:null})
-    return payment
-}
+    const order= await Order.findByPk(payment.orderId,{
+      include:[{model:OrderItem, as:"orderItems"}]
+    })
+    return {handled:true,success:true,order}
+  }
+  if(eventType==="payment.failed" && payment.status==="PENDING"){
+    await payment.update({status:"FAILED",razorpayPaymentId})
+    return{handled:true,success:false}
+  }
+  return {handled:false}
+};
 
-module.exports={createPayment,processPayment,getPaymentByOrder,resetFailedPayment}
+const getPaymentByOrder = async (orderId) => {
+  return Payment.findOne({ where: { orderId } });
+};
+
+const resetFailedPayment = async (orderId) => {
+  const payment = await Payment.findOne({ where: { orderId } });
+
+  if (!payment) {
+    const err = new Error("Payment not found");
+    err.status = 404;
+    throw err;
+  }
+  if (payment.status !== "FAILED") {
+    const err = new Error("Only failed payments can be retried");
+    err.status = 400;
+    throw err;
+  }
+  await payment.update({
+    status: "PENDING",
+    method: null,
+    transactionId: null,
+    razorpayOrderId:null,
+    razorpayPaymentId:null,
+    razorpaySignature:null,
+    paidAt: null,
+  });
+  return payment;
+};
+
+module.exports = {
+  initiatePayment,
+  verifyAndConfirmPayment,
+  handleWebhook,
+  getPaymentByOrder,
+  resetFailedPayment,
+};

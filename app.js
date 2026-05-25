@@ -29,6 +29,13 @@ app.use(
     credentials: true,
   }),
 );
+
+// The webhook endpoint inside payment.routes.js uses express.raw() to capture
+// the raw body Buffer needed for HMAC verification.
+// If express.json() ran first it would consume the body and we'd lose the raw bytes.
+
+app.use("/api/payments",paymentRoutes)
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -37,7 +44,6 @@ app.use("/uploads",express.static(path.join(__dirname,"uploads")))
 app.use("/api/auth", authRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/payments",paymentRoutes)
 app.use("/api/ratings",ratingRoutes)
 app.use("/api/admin",adminRoutes) 
 app.use("/api/restaurant",restaurantRoutes)

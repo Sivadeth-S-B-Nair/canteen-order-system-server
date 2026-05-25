@@ -1,59 +1,104 @@
-const paymentService = require("../services/payment.service")
-const {getIO}=require("../socket")
+const paymentService = require("../services/payment.service");
+const { getIO } = require("../socket");
 
-const getPayment=async(req,res,next)=>{
-    try{
-        const payment=await paymentService.getPaymentByOrder(req.params.orderId)
-        if(!payment){
-            const err=new Error("Payment not found")
-            err.status=404
-            throw err
-        }
-        res.status(200).json({success:true,data:payment})
+const getPayment = async (req, res, next) => {
+  try {
+    const payment = await paymentService.getPaymentByOrder(req.params.orderId);
+    if (!payment) {
+      const err = new Error("Payment not found");
+      err.status = 404;
+      throw err;
     }
-    catch(err){
-        next(err)
-    }
-}
+    res.status(200).json({ success: true, data: payment });
+  } catch (err) {
+    next(err);
+  }
+};
 
-const proccessPayment=async(req,res,next)=>{
-    try{
-        const {method}=req.body
-        const {orderId}=req.params
-        if(!method){
-            const err=new Error("Payment method is required")
-            err.status=400
-            throw err
-        }
-        const result=await paymentService.processPayment(orderId,method)
+const initiatePayment = async (req, res, next) => {
+  try {
+    const data = await paymentService.initiatePayment(req.params.orderId);
+    res.status(200).json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
 
-        if(result.success){
-            getIO().to(`kitchen-${result.order.restaurantId}-room`).emit("new-order",result.order)
-            getIO().to(`user-${result.order.userId}-room`).emit("order-updated",result.order)
-        }
-        res.status(200).json({
-            success:true,
-            data:{
-                paymentSuccess:result.success,
-                payment:result.payment,
-                order:result.order
-            }
-        })
-        
+const verifyAndConfirmPayment = async (req, res, next) => {
+  try {
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      const err = new Error(
+        "razorpayOrderId, razorpayPaymentId, and razorpaySignature are required",
+      );
+      err.status=400;
+      throw err;
     }
-    catch(err){
-        next(err)
+    const result = await paymentService.verifyAndConfirmPayment(
+      req.params.orderId,
+      { razorpayOrderId, razorpayPaymentId, razorpaySignature },
+    );
+    if (result.success && result.order) {
+      getIO()
+        .to(`kitchen-${result.order.restaurantId}-room`)
+        .emit("new-order", result.order);
+      getIO()
+        .to(`user-${result.order.userId}-room`)
+        .emit("order-updated", result.order);
     }
-}
+    res.status(200).json({
+      success: true,
+      data: {
+        paymentSuccess: result.success,
+        payment: result.payment,
+        order: result.order,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
-const retryPayment=async(req,res,next)=>{
-    try{
-        const payment=await paymentService.resetFailedPayment(req.params.orderId)
-        res.status(200).json({success:true,data:payment})
+const handleWebhook = async (req, res, next) => {
+  try {
+    const signature = req.headers["x-razorpay-signature"];
+    if (!signature) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing Signature" });
     }
-    catch(err){
-        next(err)
+    const rawBody = req.body.toString("utf8");
+    const result = await paymentService.handleWebhook(rawBody, signature);
+    if (result.handled && result.success && result.order) {
+      getIO()
+        .to(`kitchen-${result.order.restaurantId}-room`)
+        .emit("new-order", result.order);
+      getIO()
+        .to(`user-${result.order.userId}-room`)
+        .emit("order-updated", result.order);
     }
-}
+    res.status(200).json({
+      success: true,
+    });
+  } catch (err) {
+    console.error("[Webhook Error]", err.message);
+    res.status(200).json({ success: false, message: err.message });
+  }
+};
 
-module.exports={getPayment,proccessPayment,retryPayment}
+const retryPayment = async (req, res, next) => {
+  try {
+    const payment = await paymentService.resetFailedPayment(req.params.orderId);
+    res.status(200).json({ success: true, data: payment });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  getPayment,
+  initiatePayment,
+  verifyAndConfirmPayment,
+  handleWebhook,
+  retryPayment,
+};
