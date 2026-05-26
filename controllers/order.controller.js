@@ -3,7 +3,7 @@ const { getIO } = require("../socket");
 
 const createOrder = async (req, res, next) => {
   try {
-    const { items, deliveryType, deliveryAddressId, specialInstructions } =
+    const { items, deliveryType, deliveryAddressId, specialInstructions, promoCode } =
       req.body;
     if (!items || !Array.isArray(items) || items.length === 0) {
       const err = new Error("items array are required and cannot be empty");
@@ -15,6 +15,7 @@ const createOrder = async (req, res, next) => {
       deliveryType: deliveryType || null,
       deliveryAddressId: deliveryAddressId || null,
       specialInstructions: specialInstructions || null,
+      promoCode:promoCode||null 
     });
     //ADDED: emit to kitchen room after order is saved to DB
     // Kitchen sees new order instantly without refreshing

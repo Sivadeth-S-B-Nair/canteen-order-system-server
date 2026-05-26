@@ -10,9 +10,16 @@ const validatePromo = async (req, res, next) => {
       throw err;
     }
 
+    const parsedRestaurantId = parseInt(restaurantId, 10);
+    if (isNaN(parsedRestaurantId)) {
+      const err = new Error("restaurantId must be a valid number");
+      err.status = 400;
+      throw err;
+    }
+
     const { promo, discountAmount } = await promoService.validatePromo({
       code,
-      restaurantId: parseInt(restaurantId, 10),
+      restaurantId: parseInt(parsedRestaurantId, 10),
       userId: req.user.userId,
       subTotal: parseFloat(subtotal),
     });
@@ -82,61 +89,75 @@ const createPromo = async (req, res, next) => {
       discountValue,
       minOrderAmount: minOrderAmount || null,
       maxDiscountAmount: maxDiscountAmount || null,
-      expiresAt:expiresAt||null,
-      usageLimit:usageLimit||null
+      expiresAt: expiresAt || null,
+      usageLimit: usageLimit || null,
     });
     res.status(200).json({
-        success:true,
-        data:promo
-    })
+      success: true,
+      data: promo,
+    });
   } catch (err) {
-    if(err.name==="SequelizeUniqueConstraintError"){
-        const e=new Error("A promo code with this name already exist")
-        e.status=409
-        throw next(e)
+    if (err.name === "SequelizeUniqueConstraintError") {
+      const e = new Error("A promo code with this name already exist");
+      e.status = 409;
+      throw next(e);
     }
-    next(err)
+    next(err);
   }
 };
 
-const updatePromo=async(req,res,next)=>{
-    try{
-        const promo=await promoService.updatePromo(req.params.id,req.user.restaurantId,req.body)
-        res.status(200).json({
-            success:true,
-            data:promo
-        })
-    }
-    catch(err){
-        next(err)
-    }
-}
+const updatePromo = async (req, res, next) => {
+  try {
+    const promo = await promoService.updatePromo(
+      req.params.id,
+      req.user.restaurantId,
+      req.body,
+    );
+    res.status(200).json({
+      success: true,
+      data: promo,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
-const togglePromo=async(req,res,next)=>{
-    try{
-        const promo=await promoService.updatePromo(req.params.id,req.user.restaurantId,{})
-        await promo.update({isActive:!promo.isActive})
-        res.status(200).json({
-            success:true,
-            data:promo
-        })
-    }
-    catch(err){
-        next(err)
-    }
-}
+const togglePromo = async (req, res, next) => {
+  try {
+    const promo = await promoService.togglePromo(
+      req.params.id,
+      req.user.restaurantId,
+    );
+    // await promo.update({ isActive: !promo.isActive });
+    res.status(200).json({
+      success: true,
+      data: promo,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
-const getPromoUsageHistory=async(req,res,next)=>{
-    try{
-        const history=await promoService.getPromoUsageHistory(req.params.id,req.user.restaurantId)
-        res.status(200).json({
-            success:true,
-            data:history
-        })
-    }
-    catch(err){
-        next(err)
-    }
-}
+const getPromoUsageHistory = async (req, res, next) => {
+  try {
+    const history = await promoService.getPromoUsageHistory(
+      req.params.id,
+      req.user.restaurantId,
+    );
+    res.status(200).json({
+      success: true,
+      data: history,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
-module.exports={validatePromo,listPromos,createPromo,updatePromo,togglePromo,getPromoUsageHistory}
+module.exports = {
+  validatePromo,
+  listPromos,
+  createPromo,
+  updatePromo,
+  togglePromo,
+  getPromoUsageHistory,
+};

@@ -23,6 +23,12 @@ const computeDiscount = (promo, subTotal) => {
 const validatePromo = async ({ code, restaurantId, userId, subTotal }) => {
   const upperCode = code.toUpperCase().trim();
 
+    if (!restaurantId || isNaN(restaurantId)) {
+    const err = new Error("A valid restaurantId is required to validate a promo");
+    err.status = 400;
+    throw err;
+  }
+
   const promo = await PromoCode.findOne({
     where: {
       code: upperCode,
@@ -128,7 +134,19 @@ const updatePromo = async (id, restaurantId, updates) => {
 };
 
 const togglePromo = async (id, restaurantId) => {
-  return updatePromo(id, restaurantId, {});
+  const promo = await PromoCode.findOne({
+    where: {
+      id,
+      [Op.or]: [{ restaurantId }, { restaurantId: null }],
+    },
+  });
+  if (!promo) {
+    const err = new Error("Promo code not found");
+    err.status = 404;
+    throw err;
+  }
+  await promo.update({ isActive: !promo.isActive });
+  return promo;
 };
 
 const getPromoUsageHistory = async (promoId, restaurantId) => {
