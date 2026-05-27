@@ -166,7 +166,7 @@ const updateOrderStatus = async (orderId, newStatus, restaurantId) => {
     err.status = 400;
     throw err;
   }
-
+  
   const updateData = { status: newStatus };
   let emailSent = false;
   if (newStatus === "Cooking") updateData.cookingStartedAt = new Date();

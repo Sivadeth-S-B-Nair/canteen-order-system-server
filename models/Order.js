@@ -36,6 +36,7 @@ const Order = sequelize.define(
         "Cooking",
         "Ready",
         "Picked Up",
+        "CANCELLED"
       ),
       defaultValue: "PAYMENT_PENDING",
     },

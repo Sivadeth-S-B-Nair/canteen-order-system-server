@@ -12,6 +12,7 @@ const UserProfile = require("./UserProfile");
 const UserAddress = require("./UserAddress");
 const PromoCode = require("./PromoCode");
 const PromoUsage = require("./PromoUsage");
+const RefundRequest = require("./RefundRequest");
 
 Restaurant.hasMany(User, { foreignKey: "restaurant_id", as: "staff" });
 User.belongsTo(Restaurant, { foreignKey: "restaurant_id", as: "restaurant" });
@@ -107,6 +108,25 @@ PromoCode.belongsTo(Restaurant, {
   as: "restaurant",
 });
 
+Order.hasOne(RefundRequest, {
+  foreignKey: "order_id",
+  as: "refundRequest",
+  onDelete: "CASCADE",
+});
+RefundRequest.belongsTo(Order, { foreignKey: "order_id", as: "order" });
+
+User.hasMany(RefundRequest, {
+  foreignKey: "user_id",
+  as: "refundRequests",
+});
+RefundRequest.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
+// reviewedBy is also a User, but it's a different association (the admin).
+// We use a separate alias to avoid collision with the user association above.
+RefundRequest.belongsTo(User, {
+  foreignKey: "reviewed_by",
+  as: "reviewer",
+});
 module.exports = {
   sequelize,
   Restaurant,
@@ -122,4 +142,5 @@ module.exports = {
   UserAddress,
   PromoCode,
   PromoUsage,
+  RefundRequest,
 };

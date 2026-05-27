@@ -17,6 +17,7 @@ const restaurantRoutes=require("./routes/restaurant.routes")
 const profileRoutes    = require('./routes/profile.routes');  
 const analyticsRoutes=require("./routes/analytics.routes")
 const promoRoutes=require("./routes/promo.routes")
+const refundRoutes=require("./routes/refund.routes")
 
 const restaurantController=require("./controllers/restaurant.controller")
 
@@ -51,6 +52,7 @@ app.use("/api/restaurant",restaurantRoutes)
 app.use('/api/profile',    profileRoutes); 
 app.use("/api/analytics",analyticsRoutes)
 app.use("/api/promo",promoRoutes)
+app.use('/api/refunds', refundRoutes);
 
 app.get("/api/restaurants",restaurantController.getPublicRestaurants)
 
