@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs");
 const { User, PasswordResetToken, sequelize } = require("../models");
 const crypto = require("crypto");
 const emailService = require("./email.service");
-const Op = require("sequelize");
+const {Op} = require("sequelize");
 
 const findUserByEmail = async (email) => {
   return User.findOne({ where: { email } });
@@ -122,7 +122,7 @@ const resetPasswordViaToken = async (rawToken, newPassword) => {
     err.status = 400;
     throw err;
   }
-  const user = User.findByPk(tokenRecord.userId);
+  const user =await User.findByPk(tokenRecord.userId);
   if (!user) {
     const err = new Error("User not found");
     err.status = 404;
