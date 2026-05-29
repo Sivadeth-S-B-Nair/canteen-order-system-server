@@ -1,6 +1,21 @@
 const paymentService = require("../services/payment.service");
 const { getIO } = require("../socket");
 
+const listPayments = async (req, res, next) => {
+  try {
+    if (req.user.role === 'user') {
+        const err = new Error("Forbidden: Admins only");
+        err.status = 403;
+        throw err;
+    }
+    const { page, limit } = req.query;
+    const result = await paymentService.listPayments(req.user.role, req.user.restaurantId, page, limit);
+    res.status(200).json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 const getPayment = async (req, res, next) => {
   try {
     const payment = await paymentService.getPaymentByOrder(req.params.orderId);
@@ -101,4 +116,5 @@ module.exports = {
   verifyAndConfirmPayment,
   handleWebhook,
   retryPayment,
+  listPayments
 };

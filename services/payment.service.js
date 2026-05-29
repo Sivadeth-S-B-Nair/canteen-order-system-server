@@ -1,6 +1,42 @@
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
-const { Payment, Order, OrderItem, sequelize } = require("../models");
+const { Payment, Order, OrderItem, sequelize, Restaurant } = require("../models");
+
+const listPayments = async (role, restaurantId, page = 1, limit = 20) => {
+  const pageNum = Math.max(1, parseInt(page, 10));
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
+  const offset = (pageNum - 1) * limitNum;
+
+  const orderWhere = {};
+  if (role === "restaurant_admin" || role === "kitchen_staff") {
+    if (!restaurantId) throw new Error("Restaurant ID required");
+    orderWhere.restaurantId = restaurantId;
+  }
+
+  const { rows, count } = await Payment.findAndCountAll({
+    include: [
+      {
+        model: Order,
+        as: "order",
+        where: Object.keys(orderWhere).length ? orderWhere : undefined,
+        required: true,
+        include: [
+          { model: Restaurant, as: "restaurant", attributes: ["id", "name"] }
+        ]
+      }
+    ],
+    order: [["createdAt", "DESC"]],
+    limit: limitNum,
+    offset,
+  });
+
+  return {
+    data: rows,
+    total: count,
+    page: pageNum,
+    totalPages: Math.ceil(count / limitNum),
+  };
+};
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -239,4 +275,5 @@ module.exports = {
   handleWebhook,
   getPaymentByOrder,
   resetFailedPayment,
+  listPayments  
 };

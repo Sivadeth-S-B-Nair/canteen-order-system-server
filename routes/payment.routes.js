@@ -5,6 +5,7 @@ const {protect}=require("../middlewares/authMiddleware")
 
 router.post("/webhook",express.raw({type:"application/json"}),paymentController.handleWebhook)
 
+router.get("/", express.json(), protect, paymentController.listPayments)
 router.get("/:orderId",express.json(),protect,paymentController.getPayment)
 router.post("/:orderId/initiate",express.json(),protect,paymentController.initiatePayment)
 router.post("/:orderId/verify",express.json(),protect,paymentController.verifyAndConfirmPayment)
