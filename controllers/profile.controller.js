@@ -1,4 +1,5 @@
-const profileService = require('../services/profile.service');
+const profileService = require("../services/profile.service");
+const authService = require("../services/auth.service");
 
 const getProfile = async (req, res, next) => {
   try {
@@ -12,7 +13,11 @@ const getProfile = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
   try {
     const { name, phone, avatarUrl } = req.body;
-    const data = await profileService.updateProfile(req.user.userId, { name, phone, avatarUrl });
+    const data = await profileService.updateProfile(req.user.userId, {
+      name,
+      phone,
+      avatarUrl,
+    });
     res.status(200).json({ success: true, data });
   } catch (err) {
     next(err);
@@ -21,14 +26,21 @@ const updateProfile = async (req, res, next) => {
 
 const addAddress = async (req, res, next) => {
   try {
-    const { label, addressLine, city, state, pincode, phone, isDefault } = req.body;
+    const { label, addressLine, city, state, pincode, phone, isDefault } =
+      req.body;
     if (!addressLine) {
-      const err = new Error('addressLine is required');
+      const err = new Error("addressLine is required");
       err.status = 400;
       throw err;
     }
     const address = await profileService.addAddress(req.user.userId, {
-      label, addressLine, city, state, pincode, phone, isDefault,
+      label,
+      addressLine,
+      city,
+      state,
+      pincode,
+      phone,
+      isDefault,
     });
     res.status(201).json({ success: true, data: address });
   } catch (err) {
@@ -52,10 +64,50 @@ const updateAddress = async (req, res, next) => {
 const deleteAddress = async (req, res, next) => {
   try {
     await profileService.deleteAddress(req.user.userId, req.params.addressId);
-    res.status(200).json({ success: true, message: 'Address deleted' });
+    res.status(200).json({ success: true, message: "Address deleted" });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { getProfile, updateProfile, addAddress, updateAddress, deleteAddress };
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      const err = new Error(
+        "currentPassword, newPassword, and confirmPassword are all required",
+      );
+      err.status = 400;
+      throw err;
+    }
+
+    if (newPassword !== confirmPassword) {
+      const err = new Error("New passwords do not match");
+      err.status = 400;
+      throw err;
+    }
+
+    await authService.changePasswordInProfile(
+      req.user.userId,
+      currentPassword,
+      newPassword,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully.",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  getProfile,
+  updateProfile,
+  addAddress,
+  updateAddress,
+  deleteAddress,
+  changePassword, 
+};

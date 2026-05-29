@@ -1,6 +1,6 @@
 const { Op } = require("sequelize");
 const sequelize = require("../config/db");
-const { Order, OrderItem, MenuItem, Payment, User } = require("../models");
+const { Order, OrderItem, MenuItem, Payment, User, RefundRequest } = require("../models");
 const emailService = require("./email.service");
 const promoService = require("./promo.service");
 
@@ -128,7 +128,11 @@ const createOrder = async (
 const getUserOrders = async (userId) => {
   return Order.findAll({
     where: { userId },
-    include: [{ model: OrderItem, as: "orderItems" }],
+    include: [
+      { model: OrderItem, as: "orderItems" },
+      { model: RefundRequest, as: "refundRequest", required: false },
+    ],
+
     order: [["createdAt", "DESC"]],
   });
 };
@@ -166,7 +170,7 @@ const updateOrderStatus = async (orderId, newStatus, restaurantId) => {
     err.status = 400;
     throw err;
   }
-  
+
   const updateData = { status: newStatus };
   let emailSent = false;
   if (newStatus === "Cooking") updateData.cookingStartedAt = new Date();

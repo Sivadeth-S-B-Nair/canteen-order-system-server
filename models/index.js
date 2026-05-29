@@ -13,6 +13,7 @@ const UserAddress = require("./UserAddress");
 const PromoCode = require("./PromoCode");
 const PromoUsage = require("./PromoUsage");
 const RefundRequest = require("./RefundRequest");
+const PasswordResetToken = require("./PasswordResetToken");
 
 Restaurant.hasMany(User, { foreignKey: "restaurant_id", as: "staff" });
 User.belongsTo(Restaurant, { foreignKey: "restaurant_id", as: "restaurant" });
@@ -127,6 +128,14 @@ RefundRequest.belongsTo(User, {
   foreignKey: "reviewed_by",
   as: "reviewer",
 });
+
+User.hasMany(PasswordResetToken, {
+  foreignKey: "user_id",
+  as: "passwordResetTokens",
+  onDelete: "CASCADE",
+});
+PasswordResetToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
+
 module.exports = {
   sequelize,
   Restaurant,
@@ -143,4 +152,5 @@ module.exports = {
   PromoCode,
   PromoUsage,
   RefundRequest,
+  PasswordResetToken
 };

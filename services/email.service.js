@@ -360,4 +360,226 @@ code{font-family:monospace;font-size:13px;background:#f1f5f9;padding:2px 6px;bor
   return sendMail({ to: email, subject, text, html });
 };
 
-module.exports = { sendRestaurantAdminCredentials, sendOrderReadyEmail,sendOrderCancellationEmail,sendRefundStatusEmail };
+//sendPasswordResetEmail
+
+const sendPasswordResetEmail = async ({ email, name, resetToken }) => {
+  const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
+  const resetUrl = `${clientUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
+  const subject = "Reset your Canteen password";
+
+  const text = `
+Hi ${name || "there"},
+ 
+You requested a password reset for your Canteen account.
+ 
+Click the link below to choose a new password:
+${resetUrl}
+ 
+This link expires in 1 hour.
+ 
+If you didn't request this, you can safely ignore this email.
+Your password will not change until you click the link above and create a new one.
+ 
+— The Canteen Platform Team
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${subject}</title>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      background-color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #18181b;
+    }
+    .wrapper {
+      max-width: 520px;
+      margin: 40px auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .header {
+      background: #2563eb;
+      padding: 28px 40px;
+      text-align: center;
+    }
+    .header h1 { margin: 0; color: #fff; font-size: 20px; font-weight: 700; }
+    .header p  { margin: 6px 0 0; color: #bfdbfe; font-size: 14px; }
+    .body { padding: 32px 40px; }
+    .body p {
+      margin: 0 0 16px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #3f3f46;
+    }
+    .cta-wrapper { text-align: center; margin: 28px 0; }
+    .cta {
+      display: inline-block;
+      background: #2563eb;
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 14px 36px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .url-fallback {
+      margin-top: 20px;
+      padding: 12px 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #71717a;
+      word-break: break-all;
+    }
+    .expiry-note {
+      padding: 12px 16px;
+      background: #fffbeb;
+      border-left: 3px solid #f59e0b;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #78350f;
+      margin: 16px 0;
+    }
+    .footer {
+      padding: 16px 40px;
+      border-top: 1px solid #f4f4f5;
+      text-align: center;
+      font-size: 12px;
+      color: #a1a1aa;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>🍽️ Canteen Platform</h1>
+      <p>Password Reset Request</p>
+    </div>
+    <div class="body">
+      <p>Hi <strong>${name || "there"}</strong>,</p>
+      <p>
+        We received a request to reset the password for your Canteen account
+        (<strong>${email}</strong>).
+      </p>
+      <div class="cta-wrapper">
+        <a href="${resetUrl}" class="cta">Reset my password →</a>
+      </div>
+      <div class="expiry-note">
+        ⏰ This link expires in <strong>1 hour</strong>. After that, you'll
+        need to request a new one.
+      </div>
+      <p>
+        If the button above doesn't work, copy and paste this URL into your
+        browser:
+      </p>
+      <div class="url-fallback">${resetUrl}</div>
+      <p style="margin-top:20px; font-size:13px; color:#71717a;">
+        If you didn't request a password reset, you can safely ignore this email.
+        Your password won't change unless you click the link above.
+      </p>
+    </div>
+    <div class="footer">
+      You received this because a password reset was requested for this account.<br/>
+      If this was unexpected, contact your platform administrator.
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  return sendMail({ to: email, subject, text, html });
+};
+
+/**
+ * sendPasswordChangedEmail
+ *
+ * Security notification sent AFTER a successful password change.
+ * This is critical: if someone's account was compromised and the attacker
+ * changed the password, this email alerts the real owner immediately.
+ *
+ * Sent for BOTH flows:
+ *   - Password reset via email link
+ *   - Change password inside profile settings (logged-in user)
+ */
+const sendPasswordChangedEmail = async ({ email, name }) => {
+  const subject = "Your Canteen password was changed";
+
+  const text = `
+Hi ${name || "there"},
+ 
+This is a confirmation that the password for your Canteen account (${email}) was recently changed.
+ 
+If you made this change, no action is needed.
+ 
+If you did NOT make this change, please contact your platform administrator immediately and reset your password using the "Forgot Password" link on the login page.
+ 
+— The Canteen Platform Team
+  `.trim();
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body{margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#18181b}
+    .wrapper{max-width:520px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    .header{background:#16a34a;padding:28px 40px;text-align:center}
+    .header h1{margin:0;color:#fff;font-size:20px;font-weight:700}
+    .header p{margin:4px 0 0;color:#bbf7d0;font-size:14px}
+    .body{padding:32px 40px}
+    .body p{margin:0 0 16px;font-size:15px;line-height:1.6;color:#3f3f46}
+    .warning{padding:14px 18px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:4px;font-size:13px;color:#991b1b;line-height:1.5;margin:20px 0}
+    .footer{padding:16px 40px;border-top:1px solid #f4f4f5;text-align:center;font-size:12px;color:#a1a1aa}
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>🔒 Password Changed</h1>
+      <p>Security notification</p>
+    </div>
+    <div class="body">
+      <p>Hi <strong>${name || "there"}</strong>,</p>
+      <p>
+        This is a confirmation that the password for your Canteen account
+        (<strong>${email}</strong>) was successfully changed.
+      </p>
+      <p>
+        If you made this change, no action is needed — you're all set.
+      </p>
+      <div class="warning">
+        <strong>Didn't make this change?</strong><br/>
+        If you did not change your password, your account may have been
+        accessed without your permission. Please use the
+        <strong>Forgot Password</strong> link on the login page to secure
+        your account immediately.
+      </div>
+    </div>
+    <div class="footer">— The Canteen Platform Team</div>
+  </div>
+</body>
+</html>
+  `.trim();
+
+  return sendMail({ to: email, subject, text, html });
+};
+
+module.exports = {
+  sendRestaurantAdminCredentials,
+  sendOrderReadyEmail,
+  sendOrderCancellationEmail,
+  sendRefundStatusEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangedEmail,
+};
