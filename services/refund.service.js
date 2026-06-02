@@ -1,8 +1,8 @@
-const Razorpay = require('razorpay');
-const { Op } = require('sequelize');
-const sequelize = require('../config/db');
-const { Order, OrderItem, Payment, RefundRequest, User } = require('../models');
-const emailService = require('./email.service');
+const Razorpay = require("razorpay");
+const { Op } = require("sequelize");
+const sequelize = require("../config/db");
+const { Order, OrderItem, Payment, RefundRequest, User } = require("../models");
+const emailService = require("./email.service");
 
 let razorpay;
 const getRazorpay = () => {
@@ -19,22 +19,22 @@ const cancelOrder = async (userId, orderId, cancellationReason = null) => {
   const order = await Order.findOne({
     where: { id: orderId, userId },
     include: [
-      { model: Payment, as: 'payment' },
-      { model: User, as: 'user' },
+      { model: Payment, as: "payment" },
+      { model: User, as: "user" },
     ],
   });
 
   if (!order) {
-    const err = new Error('Order not found');
+    const err = new Error("Order not found");
     err.status = 404;
     throw err;
   }
 
-  const CANCELLABLE_STATUSES = ['PAYMENT_PENDING', 'CONFIRMED'];
+  const CANCELLABLE_STATUSES = ["PAYMENT_PENDING", "CONFIRMED"];
   if (!CANCELLABLE_STATUSES.includes(order.status)) {
     const err = new Error(
       `Orders in "${order.status}" status cannot be cancelled. ` +
-        'You can only cancel orders that have not started preparation.',
+        "You can only cancel orders that have not started preparation.",
     );
     err.status = 400;
     throw err;
@@ -42,16 +42,18 @@ const cancelOrder = async (userId, orderId, cancellationReason = null) => {
 
   const existing = await RefundRequest.findOne({ where: { orderId } });
   if (existing) {
-    const err = new Error('A cancellation request already exists for this order');
+    const err = new Error(
+      "A cancellation request already exists for this order",
+    );
     err.status = 409;
     throw err;
   }
 
-  const wasAlreadyPaid = order.payment?.status === 'PAID';
+  const wasAlreadyPaid = order.payment?.status === "PAID";
 
   const t = await sequelize.transaction();
   try {
-    await order.update({ status: 'CANCELLED' }, { transaction: t });
+    await order.update({ status: "CANCELLED" }, { transaction: t });
 
     let refundRequest = null;
 
@@ -61,7 +63,7 @@ const cancelOrder = async (userId, orderId, cancellationReason = null) => {
           orderId: order.id,
           userId,
           refundAmount: parseFloat(order.totalPrice),
-          status: 'PENDING',
+          status: "PENDING",
           cancellationReason: cancellationReason || null,
         },
         { transaction: t },
@@ -78,13 +80,16 @@ const cancelOrder = async (userId, orderId, cancellationReason = null) => {
         refundAmount: wasAlreadyPaid ? parseFloat(order.totalPrice) : null,
       });
     } catch (emailErr) {
-      console.error(`[Email] Failed to send cancellation email for order ${order.id}:`, emailErr.message);
+      console.error(
+        `[Email] Failed to send cancellation email for order ${order.id}:`,
+        emailErr.message,
+      );
     }
 
     const updatedOrder = await Order.findByPk(order.id, {
       include: [
-        { model: OrderItem, as: 'orderItems' },
-        { model: RefundRequest, as: 'refundRequest' },
+        { model: OrderItem, as: "orderItems" },
+        { model: RefundRequest, as: "refundRequest" },
       ],
     });
 
@@ -95,8 +100,12 @@ const cancelOrder = async (userId, orderId, cancellationReason = null) => {
   }
 };
 
-
-const listRefundRequests = async ({ restaurantId, status = null, page = 1, limit = 20 }) => {
+const listRefundRequests = async ({
+  restaurantId,
+  status = null,
+  page = 1,
+  limit = 20,
+}) => {
   const pageNum = Math.max(1, parseInt(page, 10));
   const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));
   const offset = (pageNum - 1) * limitNum;
@@ -109,26 +118,31 @@ const listRefundRequests = async ({ restaurantId, status = null, page = 1, limit
     include: [
       {
         model: Order,
-        as: 'order',
-        where: { restaurantId }, 
+        as: "order",
+        where: { restaurantId },
         required: true,
-        include: [{ model: OrderItem, as: 'orderItems' }],
+        include: [{ model: OrderItem, as: "orderItems" }],
       },
       {
         model: User,
-        as: 'user',
-        attributes: ['id', 'name', 'email'],
+        as: "user",
+        attributes: ["id", "name", "email"],
       },
       {
         model: User,
-        as: 'reviewer',
-        attributes: ['id', 'name'],
-        required: false, 
+        as: "reviewer",
+        attributes: ["id", "name"],
+        required: false,
       },
     ],
     order: [
-      [sequelize.literal(`FIELD(RefundRequest.status, 'PENDING', 'APPROVED', 'REJECTED')`), 'ASC'],
-      ['createdAt', 'DESC'],
+      [
+        sequelize.literal(
+          `FIELD(RefundRequest.status, 'PENDING', 'APPROVED', 'REJECTED')`,
+        ),
+        "ASC",
+      ],
+      ["createdAt", "DESC"],
     ],
     limit: limitNum,
     offset,
@@ -149,11 +163,11 @@ const getUserRefundRequests = async (userId) => {
     include: [
       {
         model: Order,
-        as: 'order',
-        include: [{ model: OrderItem, as: 'orderItems' }],
+        as: "order",
+        include: [{ model: OrderItem, as: "orderItems" }],
       },
     ],
-    order: [['createdAt', 'DESC']],
+    order: [["createdAt", "DESC"]],
   });
 };
 
@@ -161,40 +175,44 @@ const reviewRefundRequest = async ({
   refundRequestId,
   restaurantId,
   adminUserId,
-  decision, 
+  decision,
   adminNotes = null,
 }) => {
-  if (!['APPROVED', 'REJECTED'].includes(decision)) {
-    const err = new Error('decision must be APPROVED or REJECTED');
+  if (!["APPROVED", "REJECTED"].includes(decision)) {
+    const err = new Error("decision must be APPROVED or REJECTED");
     err.status = 400;
     throw err;
   }
 
-  if (decision === 'REJECTED' && (!adminNotes || !adminNotes.trim())) {
-    const err = new Error('admin_notes (reason) is required when rejecting a refund request');
+  if (decision === "REJECTED" && (!adminNotes || !adminNotes.trim())) {
+    const err = new Error(
+      "admin_notes (reason) is required when rejecting a refund request",
+    );
     err.status = 400;
     throw err;
   }
 
   const refundRequest = await RefundRequest.findOne({
-    where: { id: refundRequestId, status: 'PENDING' },
+    where: { id: refundRequestId, status: "PENDING" },
     include: [
       {
         model: Order,
-        as: 'order',
+        as: "order",
         where: { restaurantId },
         required: true,
       },
       {
         model: User,
-        as: 'user',
-        attributes: ['id', 'name', 'email'],
+        as: "user",
+        attributes: ["id", "name", "email"],
       },
     ],
   });
 
   if (!refundRequest) {
-    const err = new Error('Refund request not found, already reviewed, or does not belong to your restaurant');
+    const err = new Error(
+      "Refund request not found, already reviewed, or does not belong to your restaurant",
+    );
     err.status = 404;
     throw err;
   }
@@ -203,19 +221,20 @@ const reviewRefundRequest = async ({
   let razorpayRefundId = null;
   let razorpayRefundStatus = null;
 
-  if (decision === 'APPROVED') {
-
-    const payment = await Payment.findOne({ where: { orderId: refundRequest.orderId } });
+  if (decision === "APPROVED") {
+    const payment = await Payment.findOne({
+      where: { orderId: refundRequest.orderId },
+    });
 
     if (payment?.razorpayPaymentId) {
       try {
         const rzpRefund = await getRazorpay().payments.refund(
           payment.razorpayPaymentId,
           {
-            amount: Math.round(parseFloat(refundRequest.refundAmount) * 100), 
-            speed: 'normal', // 'normal' = 5-7 business days
+            amount: Math.round(parseFloat(refundRequest.refundAmount) * 100),
+            speed: "normal", // 'normal' = 5-7 business days
             notes: {
-              reason: adminNotes || 'Customer cancellation',
+              reason: adminNotes || "Customer cancellation",
               order_id: String(refundRequest.orderId),
             },
           },
@@ -227,12 +246,12 @@ const reviewRefundRequest = async ({
           `[Razorpay] Refund API call failed for RefundRequest ${refundRequestId}:`,
           razorpayErr.message,
         );
-        razorpayRefundStatus = 'API_FAILED'; 
+        razorpayRefundStatus = "API_FAILED";
       }
     } else {
       // No razorpayPaymentId means the payment wasn't through Razorpay,
       // or the payment record is missing. Mark for manual processing.
-      razorpayRefundStatus = 'MANUAL_REQUIRED';
+      razorpayRefundStatus = "MANUAL_REQUIRED";
     }
   }
 
@@ -253,22 +272,25 @@ const reviewRefundRequest = async ({
       orderId: refundRequest.orderId,
       refundAmount: parseFloat(refundRequest.refundAmount),
       decision,
-      adminNotes: decision === 'REJECTED' ? adminNotes : null,
+      adminNotes: decision === "REJECTED" ? adminNotes : null,
       razorpayRefundId,
     });
   } catch (emailErr) {
-    console.error(`[Email] Failed to send refund status email:`, emailErr.message);
+    console.error(
+      `[Email] Failed to send refund status email:`,
+      emailErr.message,
+    );
   }
 
   return RefundRequest.findByPk(refundRequest.id, {
     include: [
       {
         model: Order,
-        as: 'order',
-        include: [{ model: OrderItem, as: 'orderItems' }],
+        as: "order",
+        include: [{ model: OrderItem, as: "orderItems" }],
       },
-      { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
-      { model: User, as: 'reviewer', attributes: ['id', 'name'] },
+      { model: User, as: "user", attributes: ["id", "name", "email"] },
+      { model: User, as: "reviewer", attributes: ["id", "name"] },
     ],
   });
 };
@@ -279,19 +301,58 @@ const getRefundRequestByOrder = async (orderId, userId) => {
     include: [
       {
         model: Order,
-        as: 'order',
-        include: [{ model: OrderItem, as: 'orderItems' }],
+        as: "order",
+        include: [{ model: OrderItem, as: "orderItems" }],
       },
     ],
   });
 
   if (!refundRequest) {
-    const err = new Error('No refund request found for this order');
+    const err = new Error("No refund request found for this order");
     err.status = 404;
     throw err;
   }
 
   return refundRequest;
+};
+
+const updateRefundFromWebhook = async ({
+  razorpayRefundId,
+  razorpayRefundStatus,
+}) => {
+  const refundRequest = await RefundRequest.findOne({
+    where: { razorpayRefundId },
+    include: [
+      { model: User, as: "user", attributes: ["id", "name", "email"] },
+      {
+        model: Order,
+        as: "order",
+        include: [{ model: OrderItem, as: "orderItems" }],
+      },
+    ],
+  });
+
+  if(!refundRequest) return null
+
+  await refundRequest.update(({razorpayRefundStatus}))
+
+  if(razorpayRefundStatus==="processed"){
+    try{
+      await emailService.sendRefundStatusEmail({
+        email: refundRequest.user.email,
+        name: refundRequest.user.name,
+        orderId: refundRequest.orderId,
+        refundAmount: parseFloat(refundRequest.refundAmount),
+        decision: 'APPROVED',      // already approved; this is the money-sent notification
+        adminNotes: null,
+        razorpayRefundId,
+      });
+    }
+    catch(emailErr){
+      console.error(`[Email] Failed to send refund-processed email:`, emailErr.message);
+    }
+  }
+  return refundRequest
 };
 
 module.exports = {
@@ -300,4 +361,5 @@ module.exports = {
   getUserRefundRequests,
   reviewRefundRequest,
   getRefundRequestByOrder,
+  updateRefundFromWebhook
 };

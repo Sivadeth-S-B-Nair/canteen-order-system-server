@@ -52,8 +52,18 @@ const initSocket = (httpServer) => {
         );
       } else {
         socket.join(`kitchen-${socket.restaurantId}-room`);
-        console.log(`${socket.role} ${socket.userId} joined kitchen-${socket.restaurantId}-room`);
+        console.log(
+          `${socket.role} ${socket.userId} joined kitchen-${socket.restaurantId}-room`,
+        );
       }
+    } else if (socket.role === "delivery_agent") {
+      // Agents join their personal room to receive delivery assignments.
+      // They also join the kitchen room so the admin dashboard stays in sync
+      // when the agent marks something as Delivered.
+      socket.join(`agent-${socket.userId}-room`);
+      console.log(
+        `Delivery agent ${socket.userId} joined agent-${socket.userId}-room`,
+      );
     } else {
       socket.join(`user-${socket.userId}-room`);
       console.log(`User ${socket.userId} joined user-${socket.userId}-room`);
@@ -64,7 +74,7 @@ const initSocket = (httpServer) => {
     });
   });
   return io;
-};      
+};
 
 // getIO is called from controllers to emit events
 // This is the key function — controllers don't import io directly

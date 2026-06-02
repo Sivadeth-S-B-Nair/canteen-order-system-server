@@ -3,18 +3,23 @@ const { getIO } = require("../socket");
 
 const listPayments = async (req, res, next) => {
   try {
-    if (req.user.role === 'user') {
-        const err = new Error("Forbidden: Admins only");
-        err.status = 403;
-        throw err;
+    if (req.user.role === "user") {
+      const err = new Error("Forbidden: Admins only");
+      err.status = 403;
+      throw err;
     }
     const { page, limit } = req.query;
-    const result = await paymentService.listPayments(req.user.role, req.user.restaurantId, page, limit);
+    const result = await paymentService.listPayments(
+      req.user.role,
+      req.user.restaurantId,
+      page,
+      limit,
+    );
     res.status(200).json({ success: true, ...result });
   } catch (err) {
     next(err);
   }
-}
+};
 
 const getPayment = async (req, res, next) => {
   try {
@@ -46,7 +51,7 @@ const verifyAndConfirmPayment = async (req, res, next) => {
       const err = new Error(
         "razorpayOrderId, razorpayPaymentId, and razorpaySignature are required",
       );
-      err.status=400;
+      err.status = 400;
       throw err;
     }
     const result = await paymentService.verifyAndConfirmPayment(
@@ -84,13 +89,20 @@ const handleWebhook = async (req, res, next) => {
     }
     const rawBody = req.body.toString("utf8");
     const result = await paymentService.handleWebhook(rawBody, signature);
-    if (result.handled && result.success && result.order) {
-      getIO()
-        .to(`kitchen-${result.order.restaurantId}-room`)
-        .emit("new-order", result.order);
-      getIO()
-        .to(`user-${result.order.userId}-room`)
-        .emit("order-updated", result.order);
+    if (result.handled && result.success) {
+      if (result.order) {
+        getIO()
+          .to(`kitchen-${result.order.restaurantId}-room`)
+          .emit("new-order", result.order);
+        getIO()
+          .to(`user-${result.order.userId}-room`)
+          .emit("order-updated", result.order);
+      }
+      if (result.isRefundEvent && result.refundRequest) {
+        getIO()
+          .to(`user-${result.refundRequest.userId}-room`)
+          .emit("refund-updated", result.refundRequest);
+      }
     }
     res.status(200).json({
       success: true,
@@ -116,5 +128,5 @@ module.exports = {
   verifyAndConfirmPayment,
   handleWebhook,
   retryPayment,
-  listPayments
+  listPayments,
 };

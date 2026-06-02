@@ -1,8 +1,45 @@
 const { Op } = require("sequelize");
 const sequelize = require("../config/db");
-const { Order, OrderItem, MenuItem, Payment, User, RefundRequest } = require("../models");
+const {
+  Order,
+  OrderItem,
+  MenuItem,
+  Payment,
+  User,
+  RefundRequest,
+} = require("../models");
 const emailService = require("./email.service");
 const promoService = require("./promo.service");
+
+const VALID_TRANSITIONS = {
+  dine_in: {
+    CONFIRMED: "Cooking",
+    Cooking: "Ready",
+    Ready: "Picked Up",
+  },
+  delivery: {
+    CONFIRMED: "Cooking",
+    Cooking: "Ready",
+    // "Ready → Out for Delivery" is handled separately by assignAgent()
+    // because it also sets assignedAgentId and estimatedDeliveryTime.
+    "Out for Delivery": "Delivered",
+  },
+};
+
+// Button labels used by frontend (exported so the UI can stay in sync)
+const BUTTON_LABELS = {
+  dine_in: {
+    CONFIRMED: "Start Cooking",
+    Cooking: "Mark Ready",
+    Ready: "Mark Picked Up",
+  },
+  delivery: {
+    CONFIRMED: "Start Cooking",
+    Cooking: "Mark Ready",
+    // "Ready" handled by assign-agent flow, not a simple status button
+    "Out for Delivery": "Mark Delivered",
+  },
+};
 
 const createOrder = async (
   userId,
@@ -131,6 +168,12 @@ const getUserOrders = async (userId) => {
     include: [
       { model: OrderItem, as: "orderItems" },
       { model: RefundRequest, as: "refundRequest", required: false },
+      {
+        model: User,
+        as: "assignedAgent",
+        attributes: ["id", "name"],
+        required: false,
+      },
     ],
 
     order: [["createdAt", "DESC"]],
@@ -148,12 +191,26 @@ const getAllActiveOrders = async (restaurantId) => {
   });
 };
 
+const getAgentOrders = async (agentId) => {
+  return Order.findAll({
+    where: {
+      assignedAgentId: agentId,
+      status: { [Op.in]: ["Out for Delivery", "Delivered"] },
+    },
+    include: [
+      { model: OrderItem, as: "orderItems" },
+      { model: User, as: "user", attributes: ["id", "name"] },
+    ],
+    order: [["createdAt", "DESC"]],
+  });
+};
+
 const updateOrderStatus = async (orderId, newStatus, restaurantId) => {
-  const validTransitions = {
-    CONFIRMED: "Cooking",
-    Cooking: "Ready",
-    Ready: "Picked Up",
-  };
+  // const validTransitions = {
+  //   CONFIRMED: "Cooking",
+  //   Cooking: "Ready",
+  //   Ready: "Picked Up",
+  // };
   const order = await Order.findOne({
     where: { id: orderId, restaurantId },
     include: [{ model: User, as: "user" }],
@@ -163,13 +220,29 @@ const updateOrderStatus = async (orderId, newStatus, restaurantId) => {
     err.status = 404;
     throw err;
   }
-  if (validTransitions[order.status] !== newStatus) {
+
+  const trasitionMap =
+    VALID_TRANSITIONS[order.deliveryType] || VALID_TRANSITIONS.dine_in;
+  const expectedNext = trasitionMap[order.status];
+
+  if (expectedNext !== newStatus) {
     const err = new Error(
-      `Cannot move from "${order.status}" to "${newStatus}". Expected: "${validTransitions[order.status]}"`,
+      `Cannot move "${order.deliveryType}" order from "${order.status}" to "${newStatus}".` +
+        (expectedNext
+          ? ` Expected next status: "${expectedNext}".`
+          : ` No further transitions defined from "${order.status}".`),
     );
     err.status = 400;
     throw err;
   }
+
+  // if (validTransitions[order.status] !== newStatus) {
+  //   const err = new Error(
+  //     `Cannot move from "${order.status}" to "${newStatus}". Expected: "${validTransitions[order.status]}"`,
+  //   );
+  //   err.status = 400;
+  //   throw err;
+  // }
 
   const updateData = { status: newStatus };
   let emailSent = false;
@@ -197,9 +270,96 @@ const updateOrderStatus = async (orderId, newStatus, restaurantId) => {
   return { order: updatedOrder, emailSent };
 };
 
+const updateAgentOrderStatus = async (orderId, newStatus, agentId) => {
+  const order = await Order.findOne({
+    where: { id: orderId, assignedAgentId: agentId },
+    include: [{ model: User, as: "user" }],
+  });
+  if (!order) {
+    const err = new Error("Order not found or not assigned to you");
+    err.status = 404;
+    throw err;
+  }
+  if (order.status !== "Out for Delivery" || newStatus !== "Delivered") {
+    const err = new Error(
+      `Delivery agents can only mark "Out for Delivery" orders as "Delivered". ` +
+        `Current status: "${order.status}".`,
+    );
+    err.status = 400;
+    throw err;
+  }
+  await order.update({ status: "Delivered" });
+  const updatedOrder = await Order.findByPk(orderId, {
+    include: [{ model: OrderItem, as: "orderItems" }],
+  });
+  return { order: updatedOrder };
+};
+
+const assignAgent = async ({
+  orderId,
+  restaurantId,
+  agentId,
+  estimatedDeliveryTime = null,
+}) => {
+  const order = await Order.findOne({
+    where: { id: orderId, restaurantId },
+  });
+  if (!order) {
+    const err = new Error("Order not found");
+    err.status = 404;
+    throw err;
+  }
+  if (order.status !== "Ready") {
+    const err = new Error(
+      `Can only assign an agent to a "Ready" order. Current status: "${order.status}".`,
+    );
+    err.status = 400;
+    throw err;
+  }
+  if (order.deliveryType !== "delivery") {
+    const err = new Error(
+      "Can only assign a delivery agent to delivery orders.",
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  // Verify the agent belongs to this restaurant
+  const agent = await User.findOne({
+    where: { id: agentId, restaurantId, role: "delivery_agent" },
+  });
+  if (!agent) {
+    const err = new Error(
+      "Delivery agent not found or does not belong to this restaurant.",
+    );
+    err.status = 404;
+    throw err;
+  }
+
+  await order.update({
+    assignedAgentId: agentId,
+    estimatedDeliveryTime: estimatedDeliveryTime || null,
+    status: "Out for Delivery",
+  });
+
+  const updatedOrder = await Order.findByPk(orderId, {
+    include: [
+      { model: OrderItem, as: "orderItems" },
+      { model: User, as: "assignedAgent", attributes: ["id", "name"] },
+    ],
+  });
+  return { order: updatedOrder, agent };
+};
+
+
 module.exports = {
   createOrder,
   getUserOrders,
   getAllActiveOrders,
   updateOrderStatus,
+  updateAgentOrderStatus,
+  assignAgent,
+  getAgentOrders,
+  VALID_TRANSITIONS,
+  BUTTON_LABELS
 };

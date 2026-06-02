@@ -43,6 +43,10 @@ RefreshToken.belongsTo(User, { foreignKey: "user_id", as: "user" });
 User.hasMany(Order, { foreignKey: "user_id", as: "orders" });
 Order.belongsTo(User, { foreignKey: "user_id", as: "user" });
 
+// An agent can have many orders assigned to them.
+User.hasMany(Order, { foreignKey: "assigned_agent_id", as: "assignedOrders" });
+Order.belongsTo(User, { foreignKey: "assigned_agent_id", as: "assignedAgent" });
+
 // A order can have many items
 Order.hasMany(OrderItem, { foreignKey: "order_id", as: "orderItems" });
 OrderItem.belongsTo(Order, { foreignKey: "order_id", as: "order" });

@@ -1,6 +1,13 @@
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
-const { Payment, Order, OrderItem, sequelize, Restaurant } = require("../models");
+const {
+  Payment,
+  Order,
+  OrderItem,
+  sequelize,
+  Restaurant,
+} = require("../models");
+const refundService = require("./refund.service");
 
 const listPayments = async (role, restaurantId, page = 1, limit = 20) => {
   const pageNum = Math.max(1, parseInt(page, 10));
@@ -21,9 +28,9 @@ const listPayments = async (role, restaurantId, page = 1, limit = 20) => {
         where: Object.keys(orderWhere).length ? orderWhere : undefined,
         required: true,
         include: [
-          { model: Restaurant, as: "restaurant", attributes: ["id", "name"] }
-        ]
-      }
+          { model: Restaurant, as: "restaurant", attributes: ["id", "name"] },
+        ],
+      },
     ],
     order: [["createdAt", "DESC"]],
     limit: limitNum,
@@ -43,7 +50,7 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-const createRazerpayOrder = async (internalOrderId, amountInRupees) => {
+const createRazorpayOrder = async (internalOrderId, amountInRupees) => {
   const options = {
     amount: Math.round(parseFloat(amountInRupees) * 100), //paise
     currency: "INR",
@@ -107,7 +114,7 @@ const initiatePayment = async (internalOrderId) => {
     };
   }
 
-  const rzpOrder = await createRazerpayOrder(internalOrderId, payment.amount);
+  const rzpOrder = await createRazorpayOrder(internalOrderId, payment.amount);
   await payment.update({ razorpayOrderId: rzpOrder.id });
 
   return {
@@ -116,7 +123,6 @@ const initiatePayment = async (internalOrderId) => {
     currency: "INR",
     keyId: process.env.RAZORPAY_KEY_ID,
   };
-
 };
 
 const verifyAndConfirmPayment = async (
@@ -132,6 +138,11 @@ const verifyAndConfirmPayment = async (
     throw err;
   }
   if (payment.status === "PAID") {
+    // Webhook beat us, but we still want to save the signature if we have it
+    if (!payment.razorpaySignature && razorpaySignature) {
+      await payment.update({ razorpaySignature });
+    }
+    
     const order = await Order.findByPk(internalOrderId, {
       include: [{ model: OrderItem, as: "orderItems" }],
     });
@@ -155,9 +166,11 @@ const verifyAndConfirmPayment = async (
   }
   const t = await sequelize.transaction();
   try {
+    const paymentDetails = await razorpay.payments.fetch(razorpayPaymentId);
     await payment.update(
       {
         status: "PAID",
+        method: paymentDetails.method,
         razorpayPaymentId,
         razorpaySignature,
         transactionId: razorpayOrderId,
@@ -202,6 +215,30 @@ const handleWebhook = async (rawBody, signature) => {
   }
   const event = JSON.parse(rawBody);
   const eventType = event.event;
+
+  const refundEntity = event.payload?.refund?.entity;
+  if (
+    ["refund.created", "refund.processed", "refund.failed"].includes(
+      eventType,
+    ) &&
+    refundEntity
+  ) {
+    const razorpayRefundId = refundEntity.id;
+    const razorpayRefundStatus = refundEntity.status; // 'created' | 'processed' | 'failed'
+
+    const updated = await refundService.updateRefundFromWebhook({
+      razorpayRefundId,
+      razorpayRefundStatus,
+    });
+
+    return {
+      handled: true,
+      success: true,
+      refundRequest: updated ?? null,
+      isRefundEvent: true,
+    };
+  }
+
   const paymentEntity = event.payload?.payment?.entity;
   if (!paymentEntity) {
     return { handled: false };
@@ -212,32 +249,35 @@ const handleWebhook = async (rawBody, signature) => {
   if (!payment) {
     return { handled: false };
   }
-  if (eventType == "payment.captured" && payment.status !== "PAID") {
+  if (eventType === "payment.captured" && payment.status !== "PAID") {
     const t = await sequelize.transaction();
     try {
+      const paymentDetails = await razorpay.payments.fetch(razorpayPaymentId);
       await payment.update(
-        { status: "PAID", razorpayPaymentId, transactionId: razorpayOrderId },
+        { status: "PAID",method: paymentDetails.method, razorpayPaymentId, transactionId: razorpayOrderId,paidAt: new Date() },
         { transaction: t },
       );
       await Order.update(
         { status: "CONFIRMED" },
         { where: { id: payment.orderId }, transaction: t },
       );
-      await t.commit()
+      await t.commit();
     } catch (err) {
-      await t.rollback()
-      throw err
+      await t.rollback();
+      throw err;
     }
-    const order= await Order.findByPk(payment.orderId,{
-      include:[{model:OrderItem, as:"orderItems"}]
-    })
-    return {handled:true,success:true,order}
+    const order = await Order.findByPk(payment.orderId, {
+      include: [{ model: OrderItem, as: "orderItems" }],
+    });
+    return { handled: true, success: true, order };
   }
-  if(eventType==="payment.failed" && payment.status==="PENDING"){
-    await payment.update({status:"FAILED",razorpayPaymentId})
-    return{handled:true,success:false}
+  if (eventType === "payment.failed" && payment.status === "PENDING") {
+    await payment.update({ status: "FAILED", razorpayPaymentId });
+    return { handled: true, success: false };
   }
-  return {handled:false}
+  // Refund webhook
+
+  return { handled: false };
 };
 
 const getPaymentByOrder = async (orderId) => {
@@ -261,9 +301,9 @@ const resetFailedPayment = async (orderId) => {
     status: "PENDING",
     method: null,
     transactionId: null,
-    razorpayOrderId:null,
-    razorpayPaymentId:null,
-    razorpaySignature:null,
+    razorpayOrderId: null,
+    razorpayPaymentId: null,
+    razorpaySignature: null,
     paidAt: null,
   });
   return payment;
@@ -275,5 +315,5 @@ module.exports = {
   handleWebhook,
   getPaymentByOrder,
   resetFailedPayment,
-  listPayments  
+  listPayments,
 };

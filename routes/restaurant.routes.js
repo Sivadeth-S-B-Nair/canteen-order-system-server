@@ -1,9 +1,30 @@
-const express=require("express")
-const router=express.Router()
-const restaurantController=require("../controllers/restaurant.controller")
-const { verifyRestaurantAdmin, protect } = require("../middlewares/authMiddleware")
+const express = require("express");
+const router = express.Router();
+const restaurantController = require("../controllers/restaurant.controller");
+const {
+  verifyRestaurantAdmin,
+  protect,
+} = require("../middlewares/authMiddleware");
 
+router.post(
+  "/staff",
+  protect,
+  verifyRestaurantAdmin,
+  restaurantController.createKitchenStaff,
+);
 
-router.post("/staff",protect,verifyRestaurantAdmin,restaurantController.createKitchenStaff)
+router.post(
+  "/delivery-agent",
+  protect,
+  verifyRestaurantAdmin,
+  restaurantController.createDeliveryAgent,
+);
 
-module.exports=router
+router.get(
+  "/delivery-agents",
+  protect,
+  verifyRestaurantAdmin,
+  restaurantController.listDeliveryAgents,
+);
+
+module.exports = router;

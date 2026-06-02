@@ -29,14 +29,26 @@ const Order = sequelize.define(
       allowNull: false,
       defaultValue: 0.0,
     },
+    assignedAgentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+    },
+    estimatedDeliveryTime: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
     status: {
       type: DataTypes.ENUM(
         "PAYMENT_PENDING",
         "CONFIRMED",
         "Cooking",
         "Ready",
+        "Out for Delivery",
+        "Delivered",
         "Picked Up",
-        "CANCELLED"
+        "CANCELLED",
       ),
       defaultValue: "PAYMENT_PENDING",
     },
