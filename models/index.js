@@ -14,7 +14,7 @@ const PromoCode = require("./PromoCode");
 const PromoUsage = require("./PromoUsage");
 const RefundRequest = require("./RefundRequest");
 const PasswordResetToken = require("./PasswordResetToken");
-const AgentLocation=require("./AgentLocation")
+const AgentLocation = require("./AgentLocation");
 
 Restaurant.hasMany(User, { foreignKey: "restaurant_id", as: "staff" });
 User.belongsTo(Restaurant, { foreignKey: "restaurant_id", as: "restaurant" });
@@ -48,11 +48,15 @@ Order.belongsTo(User, { foreignKey: "user_id", as: "user" });
 User.hasMany(Order, { foreignKey: "assigned_agent_id", as: "assignedOrders" });
 Order.belongsTo(User, { foreignKey: "assigned_agent_id", as: "assignedAgent" });
 
-User.hasOne(AgentLocation,{foreignKey:"agent_id",as:"location",onDelete:"CASCADE"})
-AgentLocation.belongsTo(User,{foreignKey:"agent_id",as:"agent"})
+User.hasOne(AgentLocation, {
+  foreignKey: "agent_id",
+  as: "location",
+  onDelete: "CASCADE",
+});
+AgentLocation.belongsTo(User, { foreignKey: "agent_id", as: "agent" });
 
-Order.hasOne(AgentLocation,{foreignKey:"order_id",as:"agentLocation"})
-AgentLocation.belongsTo(Order,{foreignKey:"order_id",as:"order"})
+Order.hasOne(AgentLocation, { foreignKey: "order_id", as: "agentLocation" });
+AgentLocation.belongsTo(Order, { foreignKey: "order_id", as: "order" });
 
 // A order can have many items
 Order.hasMany(OrderItem, { foreignKey: "order_id", as: "orderItems" });
@@ -78,6 +82,15 @@ Order.hasOne(Payment, {
   onDelete: "CASCADE",
 });
 Payment.belongsTo(Order, { foreignKey: "order_id", as: "order" });
+
+UserAddress.hasMany(Order, {
+  foreignKey: "delivery_address_id",
+  as: "orders",
+});
+Order.belongsTo(UserAddress, {
+  foreignKey: "delivery_address_id",
+  as: "deliveryAddress",
+});
 
 User.hasMany(Rating, { foreignKey: "user_id", as: "ratings" });
 Rating.belongsTo(User, { foreignKey: "user_id", as: "user" });

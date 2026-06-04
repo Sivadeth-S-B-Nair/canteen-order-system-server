@@ -38,6 +38,16 @@ const UserAddress = sequelize.define(
       defaultValue: false,
       allowNull: false,
     },
+    latitude: {
+      type: DataTypes.DECIMAL(10, 7),
+      allowNull: true,
+      defaultValue: null,
+    },
+    longitude: {
+      type: DataTypes.DECIMAL(10, 7),
+      allowNull: true,
+      defaultValue: null,
+    },
   },
   {
     tableName: 'user_addresses',

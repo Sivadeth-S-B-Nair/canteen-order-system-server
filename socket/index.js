@@ -1,6 +1,6 @@
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
-const { User, Order } = require("../models");
+const { Order } = require("../models");
 const locationService = require('../services/location.service');
 
 let io; // will be set once, used everywhere
@@ -120,8 +120,7 @@ const initSocket = (httpServer) => {
             verifiedOrderId = order.id;
             // Make sure agent is in the order room
             const orderRoom = `order-${orderId}-room`;
-            const rooms = socket.rooms;
-            if (!rooms.has(orderRoom)) {
+            if (!socket.rooms.has(orderRoom)) {
               socket.join(orderRoom);
               console.log(
                 `Agent ${socket.userId} joined ${orderRoom} on location-update`,

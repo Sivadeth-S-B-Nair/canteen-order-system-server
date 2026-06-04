@@ -7,6 +7,7 @@ const {
   Payment,
   User,
   RefundRequest,
+  UserAddress,
 } = require("../models");
 const emailService = require("./email.service");
 const promoService = require("./promo.service");
@@ -174,6 +175,22 @@ const getUserOrders = async (userId) => {
         attributes: ["id", "name"],
         required: false,
       },
+      {
+        model: UserAddress,
+        as: "deliveryAddress",
+        attributes: [
+          "id",
+          "label",
+          "addressLine",
+          "city",
+          "state",
+          "pincode",
+          "phone",
+          "latitude",
+          "longitude",
+        ],
+        required: false,
+      },
     ],
 
     order: [["createdAt", "DESC"]],
@@ -186,7 +203,31 @@ const getAllActiveOrders = async (restaurantId) => {
       restaurantId,
       status: { [Op.notIn]: ["PAYMENT_PENDING", "Picked Up"] },
     },
-    include: [{ model: OrderItem, as: "orderItems" }],
+    include: [
+      { model: OrderItem, as: "orderItems" },
+      {
+        model: User,
+        as: "assignedAgent",
+        attributes: ["id", "name"],
+        required: false,
+      },
+      {
+        model: UserAddress,
+        as: "deliveryAddress",
+        attributes: [
+          "id",
+          "label",
+          "addressLine",
+          "city",
+          "state",
+          "pincode",
+          "phone",
+          "latitude",
+          "longitude",
+        ],
+        required: false,
+      },
+    ],
     order: [["createdAt", "ASC"]],
   });
 };
@@ -200,6 +241,22 @@ const getAgentOrders = async (agentId) => {
     include: [
       { model: OrderItem, as: "orderItems" },
       { model: User, as: "user", attributes: ["id", "name"] },
+      {
+        model: UserAddress,
+        as: "deliveryAddress",
+        attributes: [
+          "id",
+          "label",
+          "addressLine",
+          "city",
+          "state",
+          "pincode",
+          "phone",
+          "latitude",
+          "longitude",
+        ],
+        required: false,
+      },
     ],
     order: [["createdAt", "DESC"]],
   });
@@ -351,7 +408,6 @@ const assignAgent = async ({
   return { order: updatedOrder, agent };
 };
 
-
 module.exports = {
   createOrder,
   getUserOrders,
@@ -361,5 +417,5 @@ module.exports = {
   assignAgent,
   getAgentOrders,
   VALID_TRANSITIONS,
-  BUTTON_LABELS
+  BUTTON_LABELS,
 };

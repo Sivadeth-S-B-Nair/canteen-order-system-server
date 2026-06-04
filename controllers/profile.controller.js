@@ -26,7 +26,7 @@ const updateProfile = async (req, res, next) => {
 
 const addAddress = async (req, res, next) => {
   try {
-    const { label, addressLine, city, state, pincode, phone, isDefault } =
+    const { label, addressLine, city, state, pincode, phone, isDefault,latitude,longitude } =
       req.body;
     if (!addressLine) {
       const err = new Error("addressLine is required");
@@ -41,6 +41,8 @@ const addAddress = async (req, res, next) => {
       pincode,
       phone,
       isDefault,
+      latitude,
+      longitude
     });
     res.status(201).json({ success: true, data: address });
   } catch (err) {

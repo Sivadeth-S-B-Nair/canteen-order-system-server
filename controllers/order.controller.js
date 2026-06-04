@@ -76,6 +76,7 @@ const updateOrderStatus = async (req, res, next) => {
     //ADDED: emit to the specific user's room after status changes
     // Only that user gets notified — not everyone
     getIO().to(`user-${order.userId}-room`).emit("order-updated", order);
+    getIO().to(`order-${order.id}-room`).emit("order-updated", order);
     getIO()
       .to(`kitchen-${order.restaurantId}-room`)
       .emit("order-updated", order);
@@ -97,6 +98,8 @@ const updateAgentDeliveryStatus = async (req, res, next) => {
     );
     // Notify the customer
     getIO().to(`user-${order.userId}-room`).emit("order-updated", order);
+     //Notify the tracking page room
+    getIO().to(`order-${order.id}-room`).emit("order-updated", order);
     // Notify the kitchen/admin dashboard
     getIO()
       .to(`kitchen-${order.restaurantId}-room`)
@@ -126,6 +129,8 @@ const assignAgent = async (req, res, next) => {
  
     // Notify the customer their order is now out for delivery
     getIO().to(`user-${order.userId}-room`).emit("order-updated", order);
+     //Notify the tracking page room
+    getIO().to(`order-${order.id}-room`).emit("order-updated", order);
     // Notify the kitchen/admin dashboard
     getIO()
       .to(`kitchen-${order.restaurantId}-room`)

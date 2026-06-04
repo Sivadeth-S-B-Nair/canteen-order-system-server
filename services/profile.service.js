@@ -59,7 +59,7 @@ const updateProfile = async (userId, { name, phone, avatarUrl }) => {
 
 const addAddress = async (
   userId,
-  { label, addressLine, city, state, pincode, phone, isDefault },
+  { label, addressLine, city, state, pincode, phone, isDefault,latitude,longitude },
 ) => {
   const t = await sequelize.transaction();
   try {
@@ -80,6 +80,8 @@ const addAddress = async (
         pincode,
         phone,
         isDefault: !!isDefault,
+        latitude,
+        longitude
       },
       { transaction: t },
     );
