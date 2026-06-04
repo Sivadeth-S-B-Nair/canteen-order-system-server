@@ -14,6 +14,7 @@ const PromoCode = require("./PromoCode");
 const PromoUsage = require("./PromoUsage");
 const RefundRequest = require("./RefundRequest");
 const PasswordResetToken = require("./PasswordResetToken");
+const AgentLocation=require("./AgentLocation")
 
 Restaurant.hasMany(User, { foreignKey: "restaurant_id", as: "staff" });
 User.belongsTo(Restaurant, { foreignKey: "restaurant_id", as: "restaurant" });
@@ -46,6 +47,12 @@ Order.belongsTo(User, { foreignKey: "user_id", as: "user" });
 // An agent can have many orders assigned to them.
 User.hasMany(Order, { foreignKey: "assigned_agent_id", as: "assignedOrders" });
 Order.belongsTo(User, { foreignKey: "assigned_agent_id", as: "assignedAgent" });
+
+User.hasOne(AgentLocation,{foreignKey:"agent_id",as:"location",onDelete:"CASCADE"})
+AgentLocation.belongsTo(User,{foreignKey:"agent_id",as:"agent"})
+
+Order.hasOne(AgentLocation,{foreignKey:"order_id",as:"agentLocation"})
+AgentLocation.belongsTo(Order,{foreignKey:"order_id",as:"order"})
 
 // A order can have many items
 Order.hasMany(OrderItem, { foreignKey: "order_id", as: "orderItems" });
@@ -144,6 +151,7 @@ module.exports = {
   sequelize,
   Restaurant,
   User,
+  AgentLocation,
   RefreshToken,
   MenuItem,
   Order,
@@ -156,5 +164,5 @@ module.exports = {
   PromoCode,
   PromoUsage,
   RefundRequest,
-  PasswordResetToken
+  PasswordResetToken,
 };

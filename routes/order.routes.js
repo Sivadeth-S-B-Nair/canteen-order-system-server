@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const orderController = require("../controllers/order.controller");
 const refundController = require("../controllers/refund.controller");
+const locationController=require("../controllers/location.controller")
 const {
   protect,
   verifyKitchenStaff,
@@ -18,7 +19,6 @@ router.get(
   verifyDeliveryAgent,
   orderController.getMyDeliveries,
 );
-
 
 router.get(
   "/all",
@@ -49,5 +49,7 @@ router.post(
 );
 
 router.post("/:id/cancel", protect, refundController.cancelOrder);
+
+router.get("/:id/agent-location", protect, locationController.getAgentLocation);
 
 module.exports = router;
