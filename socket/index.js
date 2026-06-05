@@ -1,7 +1,8 @@
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
-const { Order } = require("../models");
-const locationService = require('../services/location.service');
+const { Order, UserAddress } = require("../models");
+const locationService = require("../services/location.service");
+const { checkGeofences } = require("../services/geofence.service");
 
 let io; // will be set once, used everywhere
 
@@ -107,7 +108,11 @@ const initSocket = (httpServer) => {
           socket.emit("error", { message: "Invalid coordinates" });
           return;
         }
+
         let verifiedOrderId = null;
+        let deliveryAddress = null;
+        let orderUserId = null;
+
         if (orderId) {
           const order = await Order.findOne({
             where: {
@@ -115,10 +120,30 @@ const initSocket = (httpServer) => {
               assignedAgentId: socket.userId,
               status: "Out for Delivery",
             },
+            include: [
+              {
+                model: UserAddress,
+                as: "deliveryAddress",
+                attributes: [
+                  "id",
+                  "addressLine",
+                  "city",
+                  "state",
+                  "city",
+                  "pincode",
+                  "latitude",
+                  "longitude",
+                ],
+                required: false,
+              },
+            ],
           });
           if (order) {
             verifiedOrderId = order.id;
-            // Make sure agent is in the order room
+            deliveryAddress = order.deliveryAddress;
+            orderUserId = order.userId;
+
+            // Make sure agent is in the order room on first location ping (handle reconnects)
             const orderRoom = `order-${orderId}-room`;
             if (!socket.rooms.has(orderRoom)) {
               socket.join(orderRoom);
@@ -127,7 +152,7 @@ const initSocket = (httpServer) => {
               );
             }
           }
-        } 
+        }
         await locationService.upsertLocation(
           socket.userId,
           verifiedOrderId,
@@ -143,20 +168,59 @@ const initSocket = (httpServer) => {
           updatedAt: new Date().toISOString(),
         };
 
-        // Broadcast to the order's tracking room (user sees the dot move)
+        // Broadcast live position to tracking room and kitchen.
         if (verifiedOrderId) {
           io.to(`order-${verifiedOrderId}-room`).emit(
-            "location-update",
+            "location-update",    
             payload,
           );
         }
-
-        // Broadcast to the kitchen/admin room (optional — admins can see fleet)
         if (socket.restaurantId) {
           io.to(`kitchen-${socket.restaurantId}-room`).emit(
             "agent-location-update",
             payload,
           );
+        }
+
+        // ── Geofence check ───────────────────────────────────────────────────
+        if (verifiedOrderId && deliveryAddress) {
+          const { nearCustomer, dwellTriggered } = checkGeofences({
+            agentId: socket.userId,
+            orderId: verifiedOrderId,
+            latitude: lat,
+            longitude: lng,
+            deliveryAddress,
+          });
+
+          if (nearCustomer) {
+            const nearbyPayload = {
+              orderId: verifiedOrderId,
+              agentId: socket.userId,
+              message: "Your deliver agent is nearby!",
+              radiusMetre: 100,
+            };
+            if (orderUserId) {
+              io.to(`user-${orderUserId}-room`).emit(
+                "agent-nearby",
+                nearbyPayload,
+              );
+            }
+            io.to(`order-${verifiedOrderId}-room`).emit(
+              "agent-nearby",
+              nearbyPayload,
+            );
+
+            if (dwellTriggered) {
+              socket.emit("delivery-dwell", {
+                orderId: verifiedOrderId,
+                message:
+                  "You've been at the delivery address for 30+ seconds. Mark as Delivered?",
+              });
+              console.log(
+                `[Geofence] Dwell triggered for agent ${socket.userId} on order ${verifiedOrderId}`,
+              );
+            }
+          }
         }
       } catch (err) {
         console.error("[Socket] location-update error:", err.message);
@@ -172,8 +236,7 @@ const initSocket = (httpServer) => {
   return io;
 };
 
-// When a delivery agent connects, auto-join them to any active order room.
-// This handles reconnects during an active delivery.
+// Auto-join agent to their active order room on connect / reconnect.
 async function joinAgentToActiveOrderRoom(socket) {
   try {
     const activeOrder = await Order.findOne({

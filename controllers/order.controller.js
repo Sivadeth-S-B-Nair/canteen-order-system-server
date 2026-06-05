@@ -1,3 +1,4 @@
+const { clearDwellState } = require("../services/geofence.service");
 const orderService = require("../services/order.service");
 const { getIO } = require("../socket");
 
@@ -96,6 +97,12 @@ const updateAgentDeliveryStatus = async (req, res, next) => {
       req.body.status,
       req.user.userId,
     );
+
+     // Clear geofence dwell state now that the delivery is complete.
+    if(order.status==="Delivered" && order.assignedAgentId){
+      clearDwellState(order.assignedAgentId,order.id)
+    }
+
     // Notify the customer
     getIO().to(`user-${order.userId}-room`).emit("order-updated", order);
      //Notify the tracking page room
