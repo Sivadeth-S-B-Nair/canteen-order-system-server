@@ -233,12 +233,6 @@ const sendOrderReadyEmail = async ({ email, name, orderId }) => {
   return sendMail({ to: email, subject, text, html });
 };
 
-// sendOrderCancellationEmail
-//
-// Sent to the user immediately when they cancel an order.
-// If refundAmount is non-null, the email tells them a refund request was opened.
-// If null (PAYMENT_PENDING cancellation), we just confirm the cancellation.
-// ─────────────────────────────────────────────────────────────────────────────
 const sendOrderCancellationEmail = async ({
   email,
   name,
@@ -291,18 +285,14 @@ body{margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSys
   return sendMail({ to: email, subject, text, html });
 };
 
-// sendRefundStatusEmail
-//
-// Sent when an admin approves or rejects a refund request.
-// ─────────────────────────────────────────────────────────────────────────────
 const sendRefundStatusEmail = async ({
   email,
   name,
   orderId,
   refundAmount,
-  decision, // 'APPROVED' | 'REJECTED'
-  adminNotes, // only present when REJECTED
-  razorpayRefundId, // only present when APPROVED and Razorpay succeeded
+  decision,
+  adminNotes,
+  razorpayRefundId,
 }) => {
   const isApproved = decision === "APPROVED";
 
@@ -360,11 +350,16 @@ code{font-family:monospace;font-size:13px;background:#f1f5f9;padding:2px 6px;bor
   return sendMail({ to: email, subject, text, html });
 };
 
-//sendPasswordResetEmail
+// ─────────────────────────────────────────────────────────────────────────────
+// sendPasswordResetEmail
 
 const sendPasswordResetEmail = async ({ email, name, resetToken }) => {
-  const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
-  const resetUrl = `${clientUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+  const clientUrl = process.env.CLIENT_URL || "http://localhost:3001";
+
+  const webResetUrl = `${clientUrl}/reset-password?token=${resetToken}`;
+
+
+  const mobileDeepLink = `deliveryagent://reset-password?token=${resetToken}`;
 
   const subject = "Reset your Canteen password";
 
@@ -373,8 +368,11 @@ Hi ${name || "there"},
  
 You requested a password reset for your Canteen account.
  
-Click the link below to choose a new password:
-${resetUrl}
+If you're on a computer or browser, click or copy this link:
+${webResetUrl}
+ 
+If you're using the Delivery Agent mobile app, copy this link and paste it into your phone's browser address bar:
+${mobileDeepLink}
  
 This link expires in 1 hour.
  
@@ -420,7 +418,9 @@ Your password will not change until you click the link above and create a new on
       line-height: 1.6;
       color: #3f3f46;
     }
-    .cta-wrapper { text-align: center; margin: 28px 0; }
+
+    /* Primary CTA — web button */
+    .cta-wrapper { text-align: center; margin: 28px 0 16px; }
     .cta {
       display: inline-block;
       background: #2563eb;
@@ -431,8 +431,28 @@ Your password will not change until you click the link above and create a new on
       font-size: 15px;
       font-weight: 600;
     }
+
+    
+    .mobile-cta-wrapper { text-align: center; margin: 0 0 8px; }
+    .mobile-cta {
+      display: inline-block;
+      background: #0f172a;
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 14px 36px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .cta-label {
+      font-size: 12px;
+      color: #71717a;
+      text-align: center;
+      margin: 0 0 8px;
+    }
+
     .url-fallback {
-      margin-top: 20px;
+      margin-top: 8px;
       padding: 12px 16px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
@@ -471,18 +491,31 @@ Your password will not change until you click the link above and create a new on
         We received a request to reset the password for your Canteen account
         (<strong>${email}</strong>).
       </p>
+
+      <!-- Web reset button (original) -->
+      <p class="cta-label">Opening from a computer or browser?</p>
       <div class="cta-wrapper">
-        <a href="${resetUrl}" class="cta">Reset my password →</a>
+        <a href="${webResetUrl}" class="cta">Reset my password →</a>
       </div>
+
+
+      <p class="cta-label">Opening on your phone with the Delivery Agent app?</p>
+      <div class="mobile-cta-wrapper">
+        <a href="${mobileDeepLink}" class="mobile-cta">Open in app →</a>
+      </div>
+
+      <p class="cta-label" style="margin-top:4px;">Or copy this link and paste it into your phone's browser:</p>
+      <div class="url-fallback">${mobileDeepLink}</div>
+
       <div class="expiry-note">
         ⏰ This link expires in <strong>1 hour</strong>. After that, you'll
         need to request a new one.
       </div>
       <p>
-        If the button above doesn't work, copy and paste this URL into your
+        If the buttons above don't work, copy and paste this URL into your
         browser:
       </p>
-      <div class="url-fallback">${resetUrl}</div>
+      <div class="url-fallback">${webResetUrl}</div>
       <p style="margin-top:20px; font-size:13px; color:#71717a;">
         If you didn't request a password reset, you can safely ignore this email.
         Your password won't change unless you click the link above.
@@ -500,17 +533,6 @@ Your password will not change until you click the link above and create a new on
   return sendMail({ to: email, subject, text, html });
 };
 
-/**
- * sendPasswordChangedEmail
- *
- * Security notification sent AFTER a successful password change.
- * This is critical: if someone's account was compromised and the attacker
- * changed the password, this email alerts the real owner immediately.
- *
- * Sent for BOTH flows:
- *   - Password reset via email link
- *   - Change password inside profile settings (logged-in user)
- */
 const sendPasswordChangedEmail = async ({ email, name }) => {
   const subject = "Your Canteen password was changed";
 
